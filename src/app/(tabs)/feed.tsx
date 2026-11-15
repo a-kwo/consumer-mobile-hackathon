@@ -28,25 +28,25 @@ export default function FriendsScreen() {
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.headerText}>
+      <View style={styles.headerRow}>
         <AppText variant="overline">Friends</AppText>
-        <AppText accessibilityRole="header" variant="displayMedium">
-          Other people’s days
-        </AppText>
+        <PressableScale
+          accessibilityHint="Edit your name and emoji"
+          accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}
+          onPress={() => router.push('/profile')}
+          pressedStyle={styles.profilePressed}
+          style={styles.profile}
+          testID="profile-edit">
+          <Avatar emoji={profile?.avatarEmoji ?? '🎬'} size={28} />
+          <AppText numberOfLines={1} style={styles.profileName} variant="label">
+            {profile?.displayName ?? 'You'}
+          </AppText>
+          <Icon name="pencil" size={13} tone="secondary" />
+        </PressableScale>
       </View>
-      <PressableScale
-        accessibilityHint="Edit your name and emoji"
-        accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}
-        onPress={() => router.push('/profile')}
-        pressedStyle={styles.profilePressed}
-        style={styles.profile}
-        testID="profile-edit">
-        <Avatar emoji={profile?.avatarEmoji ?? '🎬'} size={30} />
-        <AppText numberOfLines={1} style={styles.profileName} variant="label">
-          {profile?.displayName ?? 'You'}
-        </AppText>
-        <Icon name="pencil" size={13} tone="secondary" />
-      </PressableScale>
+      <AppText accessibilityRole="header" variant="displayMedium">
+        Other people’s days
+      </AppText>
     </View>
   );
 
@@ -110,23 +110,22 @@ function Gap() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: space.md,
+    gap: space.sm,
     marginBottom: space.xl,
   },
-  headerText: {
-    flex: 1,
-    gap: space.xs,
-    paddingTop: space.sm,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+    minHeight: layout.minTouch,
   },
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    maxWidth: 170,
-    minHeight: layout.minTouch,
+    maxWidth: 220,
+    height: 40,
     paddingLeft: space.xs + 2,
     paddingRight: space.md,
     borderRadius: radius.pill,

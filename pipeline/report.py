@@ -35,6 +35,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--scene", action="append", default=[], help="scene key to list the top songs for")
     parser.add_argument("--top", type=int, default=8)
+    parser.add_argument("--include-unchecked", action="store_true",
+                        help="also count labeled songs whose iTunes check has not run yet")
     args = parser.parse_args()
 
     vocab = load_vocab()
@@ -63,8 +65,9 @@ def main() -> None:
     print()
     tempo_report(conn)
 
-    records = library_records(conn)
-    print(f"\n== Library: {len(records)} songs (labeled, confident, embedded, playable through iTunes)")
+    records = library_records(conn, include_unchecked=args.include_unchecked)
+    note = "; includes songs still waiting for their iTunes check" if args.include_unchecked else ""
+    print(f"\n== Library: {len(records)} songs (labeled, confident, embedded, playable through iTunes{note})")
     if not records:
         return
     labels = [json.loads(record["labels"]) for record in records]

@@ -145,10 +145,14 @@ READY = (
 )
 
 
-def library_records(conn, min_confidence: float = 0.6):
-    """The songs that make up the library: labeled, embedded, and playable through iTunes."""
+def library_records(conn, min_confidence: float = 0.6, include_unchecked: bool = False):
+    """The songs that make up the library: labeled, embedded, and playable through iTunes.
+
+    `include_unchecked` also returns songs whose iTunes check has not run yet (for reports only).
+    """
+    itunes = "(itunes_track_id IS NOT NULL OR itunes_checked = 0)" if include_unchecked else "itunes_track_id IS NOT NULL"
     return conn.execute(
-        f"SELECT * FROM tracks WHERE {READY} AND itunes_track_id IS NOT NULL ORDER BY deezer_id", (min_confidence,)
+        f"SELECT * FROM tracks WHERE {READY} AND {itunes} ORDER BY deezer_id", (min_confidence,)
     ).fetchall()
 
 

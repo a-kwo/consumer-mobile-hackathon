@@ -227,7 +227,11 @@ CHART_ROUNDS = 10
 # --------------------------------------------------------------------------- crawl
 
 
+RUN_SOURCES: set[str] = set()  # sources crawled by this run, for top-up selection
+
+
 def store_tracks(conn, items: list[dict], tag: str, source: str) -> int:
+    RUN_SOURCES.add(source)
     stored = 0
     for item in items:
         if not isinstance(item, dict) or item.get("type", "track") != "track":
@@ -430,13 +434,19 @@ def eligible(row) -> str | None:
     return None
 
 
-def select(conn, target: int, per_tag: int, min_rank: int, tag_min_rank: int) -> dict:
+def select(conn, target: int, per_tag: int, min_rank: int, tag_min_rank: int,
+           only_sources: set[str] | None = None) -> dict:
+    """Choose candidates. With `only_sources` (a top-up run) only songs found by those sources
+    are considered, and there is no popularity fill."""
     rows = conn.execute("SELECT * FROM tracks").fetchall()
     tags_by_id: dict[int, set[str]] = defaultdict(set)
     sources_by_id_tag: Counter = Counter()
+    topup_ids: set[int] = set()
     for tag_row in conn.execute("SELECT deezer_id, tag, source FROM track_tags"):
         tags_by_id[tag_row["deezer_id"]].add(tag_row["tag"])
         sources_by_id_tag[(tag_row["deezer_id"], tag_row["tag"])] += 1
+        if only_sources and tag_row["source"] in only_sources:
+            topup_ids.add(tag_row["deezer_id"])
 
     # One representative per song: plain versions beat live takes and remixes, then popularity.
     groups: dict[str, list] = defaultdict(list)
@@ -457,6 +467,8 @@ def select(conn, target: int, per_tag: int, min_rank: int, tag_min_rank: int) ->
     songs = []
     for key, versions in groups.items():
         if key in already_selected_keys:
+            continue
+        if only_sources and not any(version["deezer_id"] in topup_ids for version in versions):
             continue
         versions.sort(key=lambda r: (r["version_flags"] != "", -(r["rank"] or 0)))
         best = versions[0]
@@ -518,7 +530,7 @@ def select(conn, target: int, per_tag: int, min_rank: int, tag_min_rank: int) ->
                     break
 
     # Fill what is left with the most popular, best-supported songs.
-    if selected_count + len(chosen) < target:
+    if selected_count + len(chosen) < target and not only_sources:
         rest = sorted(songs, key=lambda s: -(s["rank"] / 1e6 + 0.05 * len(s["tags"])))
         for song in rest:
             if selected_count + len(chosen) >= target:
@@ -589,7 +601,9 @@ def main() -> None:
             tags = sorted({tag for _, tag in phrases})
             log(f"last.fm: {crawl_lastfm(api, conn, lastfm_key, tags)} tracks")
 
-    summary = select(conn, args.limit, args.per_tag, args.min_rank, args.tag_min_rank)
+    topup = bool(args.artist or args.extra or args.only) and not args.select_only
+    summary = select(conn, args.limit, args.per_tag, args.min_rank, args.tag_min_rank,
+                     only_sources=set(RUN_SOURCES) if topup else None)
     log(f"pool {summary['pool']} tracks, {summary['songs']} distinct eligible songs; "
         f"selected +{summary['added']} (total {summary['selected_total']})")
     log("not eligible: " + ", ".join(f"{reason} {count}" for reason, count in sorted(summary["rejected"].items())))
