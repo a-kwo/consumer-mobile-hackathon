@@ -77,7 +77,7 @@ export const CONFIG = {
   },
 
   sensing: {
-    /** Slider bounds enforced on simulator values. */
+    /** The highest cadence the engine believes. */
     maxCadenceSpm: 220,
     /** Pedometer updates arrive in batches; cadence holds this long after one, then decays. */
     cadenceGraceMs: 4000,
@@ -119,6 +119,8 @@ export const CONFIG = {
     clockMs: 60 * 1000,
     placesStorageKey: 'score.places.v1',
     chosenLocationStorageKey: 'score.location.v1',
+    /** How long each signal may take in a silent setup (a plain `start()`). */
+    quickBudgetMs: 2500,
     /** A place lookup or search that has not answered after this long is given up on. */
     placeLookupTimeoutMs: 10000,
     /** The label of a device position the backend has no name for. */
@@ -132,12 +134,11 @@ export const CONFIG = {
     placeFixTimeoutMs: 10000,
   },
 
-  simulator: {
-    cadenceSpm: 100,
-    weather: 'clear',
-    setting: 'city',
-    /** Where the "Upcoming event" control starts once an occasion is chosen. */
-    minutesUntil: 45,
+  setup: {
+    /** Each step of the setup sequence shows as working for at least this long... */
+    minStepMs: 700,
+    /** ...and its signal has about this long to come from the device before the demo source is used. */
+    maxStepMs: 4000,
   },
 } as const;
 
@@ -154,9 +155,10 @@ export const MESSAGES = {
     playback: "Couldn't play the music. Try again in a moment.",
   },
   calendarDenied: 'Calendar access is off, so Score scores without your events. Turn it on in Settings.',
-  calendarUnavailable: 'This build cannot read a calendar. Events chosen in Manual still work.',
+  calendarUnavailable: 'This build cannot read a calendar.',
   calendarUnreadable: "Couldn't read your calendar just now. Scoring without it.",
   occasionUnsupported: "The score can't follow events yet, so this cue was picked without one.",
+  setupFailed: "Couldn't set the scene. Try again.",
   placeNoFix: "Couldn't tell where you are. Turn on location and try again.",
   profileUnavailable: "Couldn't save your profile. Check your connection and try again.",
 } as const;

@@ -10,6 +10,7 @@ import type { PlayContext, Profile, Scene, Track } from '../../../convex/lib/val
 import { useScoreEngine } from './provider';
 import type {
   CalendarAccess,
+  DemoControl,
   LiveReadings,
   LocationStatus,
   NudgeDirection,
@@ -22,10 +23,10 @@ import type {
   ReplayStatus,
   SavedPlace,
   ScoreLocation,
-  SensingMode,
   SessionStatus,
-  SimValues,
-  SimView,
+  SetupSnapshot,
+  SignalId,
+  SignalSource,
 } from './types';
 
 export type ProfileApi = {
@@ -38,52 +39,35 @@ export type ProfileApi = {
 };
 
 export type SensingApi = {
-  mode: SensingMode;
-  /**
-   * Switching to `'live'` asks for motion and location access (the first time)
-   * and turns the sensors on; switching to `'simulated'` turns them off.
-   */
-  setMode(mode: SensingMode): void;
-  /** False on simulators, emulators, web and phones without a pedometer. */
-  liveAvailable: boolean;
   /** `'unknown'` until the user has been asked. */
   permissions: { motion: PermissionState; location: PermissionState };
-  /**
-   * Simulator values in effect. `localHour` is a float, 0 to 24. With a location
-   * set, `weather` and `setting` follow it until picked through `setSim`;
-   * `weatherSource` and `settingSource` say which ('location' | 'manual').
-   */
-  sim: SimView;
-  /** Cadence is rounded and clamped to 0–220; `localHour` is clamped to 0–24. */
-  setSim(patch: Partial<SimValues>): void;
-  /** Latest live readings (zeros, `'any'` and nulls until the sensors report). */
+  /** Where each signal comes from right now ('device' or 'demo'); null while it has not been sensed. */
+  sources: Record<SignalId, SignalSource | null>;
+  /** The readings in effect: pace, weather, place name, hour. */
   live: LiveReadings;
-  /** The effective context right now: simulator values or live readings, by mode. */
+  /** The context a pick would be made from right now. */
   context: PlayContext;
   /** What the server would target right now: `buildScene` of the context and the energy bias. */
   scene: Scene;
-  /** Where the user is, by name, in either mode; null when not known. */
+  /** Where the user is, by name; null when not known. */
   location: ScoreLocation | null;
-  /** 'locating' while `locateDevice` works; 'denied', 'unavailable' or 'error' when it failed. */
+  /** 'locating' while the place is being found; 'denied', 'unavailable' or 'error' when it could not be. */
   locationStatus: LocationStatus;
-  /**
-   * Finds the device's position (asking for permission if needed; in a browser
-   * call it from a tap), names it, and sets `location` with source 'device'.
-   */
+  /** Finds the device's position and names it. In a browser, call it from a tap. */
   locateDevice(): void;
-  /** The same function under the name the brief gave it. It is not a React hook. */
-  useDeviceLocation(): void;
   /** Places matching a typed query, at most five. Never rejects: [] on failure. */
   searchPlaces(query: string): Promise<PlaceResult[]>;
-  /** Sets `location` with source 'chosen' and remembers it across reloads. */
+  /** Makes a searched place the location, over what the device says, and remembers it across reloads. */
   chooseLocation(place: PlaceResult): void;
   clearLocation(): void;
-  /** The occasion steering picks: the simulator's event, or in live mode the calendar's next one. */
+  /** The presenter's control: the demo scenarios, and which one (if any) is chosen outright. */
+  demo: DemoControl;
+  /** The occasion steering picks: the calendar's next event, or a scenario's. */
   occasion: ActiveOccasion | null;
-  /** Whether calendar reading is on. The calendar is only read in live mode. */
+  /** Whether the device calendar is being read. */
   calendarEnabled: boolean;
   calendarAccess: CalendarAccess;
-  /** Turning it on asks for calendar access (the first time). Refusal changes nothing else. */
+  /** Turning it on asks for calendar access (the first time); off stops setup from asking. */
   setCalendarEnabled(enabled: boolean): void;
   /** A sentence about the calendar or the occasion, or null. */
   occasionNotice: string | null;
@@ -96,6 +80,17 @@ export type SensingApi = {
   removePlace(id: string): void;
   isSavingPlace: boolean;
   placeNotice: string | null;
+  /** The setup sequence; the same value `useSetup()` returns. */
+  setup: SetupSnapshot;
+  beginSetup(): void;
+  resetSetup(): void;
+};
+
+export type SetupApi = SetupSnapshot & {
+  /** Runs the sequence from the top; call it from a tap. Safe at any time: it replaces a run in progress and any music. */
+  beginSetup(): void;
+  /** Back to 'idle'. Does not stop music that is already playing. */
+  resetSetup(): void;
 };
 
 export type SessionApi = {
@@ -136,23 +131,31 @@ export function useProfile(): ProfileApi {
   return { deviceId: snapshot.deviceId, profile: snapshot.profile, update: identity.update };
 }
 
-/** Sensing and the simulator. */
+/** What the app senses, and the setup sequence that starts it. */
 export function useSensing(): SensingApi {
-  const { sensing } = useScoreEngine();
+  const { sensing, setup } = useScoreEngine();
   const snapshot = useSyncExternalStore(sensing.store.subscribe, sensing.store.get, sensing.store.get);
+  const sequence = useSyncExternalStore(setup.store.subscribe, setup.store.get, setup.store.get);
   return {
     ...snapshot,
-    setMode: sensing.setMode,
-    setSim: sensing.setSim,
-    setCalendarEnabled: sensing.setCalendarEnabled,
-    savePlace: sensing.savePlace,
-    removePlace: sensing.removePlace,
     locateDevice: sensing.locateDevice,
-    useDeviceLocation: sensing.locateDevice,
     searchPlaces: sensing.searchPlaces,
     chooseLocation: sensing.chooseLocation,
     clearLocation: sensing.clearLocation,
+    setCalendarEnabled: sensing.setCalendarEnabled,
+    savePlace: sensing.savePlace,
+    removePlace: sensing.removePlace,
+    setup: sequence,
+    beginSetup: setup.begin,
+    resetSetup: setup.reset,
   };
+}
+
+/** The setup sequence alone, for a screen that shows only that. */
+export function useSetup(): SetupApi {
+  const { setup } = useScoreEngine();
+  const snapshot = useSyncExternalStore(setup.store.subscribe, setup.store.get, setup.store.get);
+  return { ...snapshot, beginSetup: setup.begin, resetSetup: setup.reset };
 }
 
 /** The live scoring session. */

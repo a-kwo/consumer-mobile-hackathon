@@ -1,4 +1,7 @@
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import Animated, { css, useReducedMotion } from 'react-native-reanimated';
+
+import { Rise, crossFadeStyle, useCrossFade } from '@/components/scene/motion';
 
 import { AppText, IconButton, Notice, PressableScale, PrimaryButton } from '@/components/ui';
 import type { SensingApi, SessionApi } from '@/lib/score';
@@ -9,6 +12,11 @@ import { capitalise, nudgeLine, sceneSentence } from './format';
 import { MetaLine } from './meta-line';
 import { NowHeader } from './now-header';
 import { PlaybackReadout } from './playback-readout';
+
+const arrive = css.keyframes({
+  from: { opacity: 0, transform: [{ scale: 0.92 }] },
+  to: { opacity: 1, transform: [{ scale: 1 }] },
+});
 
 /** Phones shorter than this (iPhone SE, small Androids) get the tighter type and gaps. */
 const COMPACT_BELOW = 720;
@@ -49,60 +57,86 @@ function NudgeButton({ label, onPress, testID }: { label: string; onPress: () =>
 export function NowPlayingView({ session, sensing }: Props) {
   const { height: windowHeight } = useWindowDimensions();
   const compact = windowHeight < COMPACT_BELOW;
+  const reduceMotion = useReducedMotion();
 
   const { track, status, energyBias, nudgePicksLeft, isLoadingNext, error } = session;
   const waiting = status !== 'playing' || !track;
   const scene = session.scene ?? sensing.scene;
   const nudge = nudgeLine(energyBias, nudgePicksLeft);
+  // The song and scene the words are written from: they trail a change of cue by a short fade.
+  const words = useCrossFade({ track, scene }, String(track?.deezerId ?? 'waiting'));
 
   return (
     <View style={[styles.root, compact ? styles.rootCompact : null]}>
-      <NowHeader mode={sensing.mode} />
+      <NowHeader />
 
-      <CoverStage
-        bpm={track?.bpm ?? scene.bpm ?? 90}
-        coverColor={track?.coverColor}
-        coverUrl={track?.coverUrl ?? null}
-        energy={track?.energy ?? scene.energy}
-        trackId={track?.deezerId ?? null}>
-        {error ? <Notice message={error} testID="now-error" tone="warning" /> : null}
-      </CoverStage>
+      {/* Arrives as the music fades in: the cover grows a little into place. */}
+      <Animated.View
+        style={[
+          styles.arrival,
+          reduceMotion
+            ? null
+            : {
+                animationName: arrive,
+                animationDuration: 900,
+                animationTimingFunction: 'ease-out',
+                animationFillMode: 'both',
+              },
+        ]}>
+        <CoverStage
+          bpm={track?.bpm ?? scene.bpm ?? 90}
+          coverColor={track?.coverColor}
+          coverUrl={track?.coverUrl ?? null}
+          energy={track?.energy ?? scene.energy}
+          trackId={track?.deezerId ?? null}>
+          {error ? <Notice message={error} testID="now-error" tone="warning" /> : null}
+        </CoverStage>
+      </Animated.View>
 
-      <View style={styles.text}>
-        {/* The scene this cue was picked for, as a sentence. */}
-        <AppText numberOfLines={1} testID="now-scene-label" tone="muted" variant="sceneLine">
-          {sceneSentence(scene)}
-        </AppText>
-
-        <View style={compact ? styles.titleCompact : styles.title}>
-          <AppText
-            accessibilityRole="header"
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-            numberOfLines={2}
-            style={compact ? styles.titleTextCompact : null}
-            testID="now-track-title"
-            variant="songTitle">
-            {track ? track.title : 'Finding your first cue…'}
+      {/*
+        The words for this song, in a slot of fixed height. When the cue
+        changes the old words dissolve out and the new ones dissolve in, in
+        step with the cover and the figure's scatter.
+      */}
+      <View style={compact ? styles.textSlotCompact : styles.textSlot}>
+        <Animated.View style={[styles.text, crossFadeStyle(words.visible, reduceMotion)]}>
+          {/* The scene this cue was picked for, as a sentence. */}
+          <AppText numberOfLines={1} testID="now-scene-label" tone="muted" variant="sceneLine">
+            {sceneSentence(words.value.scene)}
           </AppText>
-        </View>
 
-        <AppText numberOfLines={1} testID="now-track-artist" tone="muted" variant="artist">
-          {track ? track.artist : 'Reading your pace, the weather and the hour'}
-        </AppText>
+          <View style={compact ? styles.titleCompact : styles.title}>
+            <AppText
+              accessibilityRole="header"
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              numberOfLines={2}
+              style={compact ? styles.titleTextCompact : null}
+              testID="now-track-title"
+              variant="songTitle">
+              {words.value.track ? words.value.track.title : 'Finding your first song…'}
+            </AppText>
+          </View>
 
-        {/* Why this song. */}
-        <View style={styles.reason}>
-          <AppText numberOfLines={2} testID="now-reason" tone="soft" variant="body">
-            {track ? capitalise(track.reason) : 'Listening to the moment before the first note.'}
+          <AppText numberOfLines={1} testID="now-track-artist" tone="muted" variant="artist">
+            {words.value.track ? words.value.track.artist : 'Reading your pace, the weather and the hour'}
           </AppText>
-        </View>
+
+          {/* Why this song. */}
+          <View style={styles.reason}>
+            <AppText numberOfLines={2} testID="now-reason" tone="soft" variant="body">
+              {words.value.track ? capitalise(words.value.track.reason) : 'Listening to the moment before the first note.'}
+            </AppText>
+          </View>
+        </Animated.View>
       </View>
 
-      <PlaybackReadout coverColor={track?.coverColor} loadingNext={isLoadingNext} waiting={waiting} />
+      <Rise delay={260}>
+        <PlaybackReadout coverColor={track?.coverColor} loadingNext={isLoadingNext} waiting={waiting} />
+      </Rise>
 
       {/* Calmer, stop, skip, more energy. */}
-      <View style={styles.controls}>
+      <Rise delay={340} style={styles.controls}>
         <NudgeButton label="Calmer" onPress={() => session.nudge('calmer')} testID="now-calmer" />
         <PrimaryButton
           accessibilityLabel="Stop scoring"
@@ -119,18 +153,20 @@ export function NowPlayingView({ session, sensing }: Props) {
           testID="now-skip"
         />
         <NudgeButton label="More energy" onPress={() => session.nudge('more_energy')} testID="now-more-energy" />
-      </View>
+      </Rise>
 
       {/* One meta line: the moment, the place, the occasion ahead, and the nudge being carried. */}
-      <MetaLine
-        align="center"
-        context={sensing.context}
-        location={sensing.location}
-        nudge={nudge}
-        playingScene={session.scene}
-        scene={sensing.scene}
-        testID="now-status"
-      />
+      <Rise delay={420}>
+        <MetaLine
+          align="center"
+          context={sensing.context}
+          location={sensing.location}
+          nudge={nudge}
+          playingScene={session.scene}
+          scene={sensing.scene}
+          testID="now-status"
+        />
+      </Rise>
     </View>
   );
 }
@@ -143,7 +179,19 @@ const styles = StyleSheet.create({
   rootCompact: {
     gap: space.md,
   },
+  // The stage inside still takes the height that is left.
+  arrival: {
+    flex: 1,
+  },
+  // Scene line, two lines of title, artist and two lines of reason.
+  textSlot: {
+    height: 178,
+  },
+  textSlotCompact: {
+    height: 162,
+  },
   text: {
+    ...StyleSheet.absoluteFill,
     gap: space.xs,
   },
   // Two lines of the song title, whether or not the title needs both.

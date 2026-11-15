@@ -1,15 +1,13 @@
 /**
- * Wording and formatting shared by the Now and Scene screens: clock times,
- * weather and setting names with their icons, and the small phrases built from
- * the engine's values.
+ * Wording and formatting for the Now and Scene screens: the scene as a
+ * sentence, the meta line, clock and playback times.
  */
 import type { IconName } from '@/components/ui';
-import type { Occasion, PlaceKind, PlayContext, Scene, Setting, Weather } from '@/lib/score';
+import type { PlayContext, Scene, Setting, Weather } from '@/lib/score';
 
-import { occasionLabel } from '../../../convex/lib/occasion';
-import { normalizeHour, paceFor, timeOfDayFor } from '../../../convex/lib/scene';
+import { normalizeHour } from '../../../convex/lib/scene';
 
-export const WEATHER_META: Record<Weather, { label: string; icon: IconName }> = {
+const WEATHER_META: Record<Weather, { label: string; icon: IconName }> = {
   any: { label: 'Any', icon: 'ellipse-outline' },
   clear: { label: 'Clear', icon: 'sunny-outline' },
   cloudy: { label: 'Cloudy', icon: 'cloud-outline' },
@@ -18,48 +16,6 @@ export const WEATHER_META: Record<Weather, { label: string; icon: IconName }> = 
   snow: { label: 'Snow', icon: 'snow-outline' },
   storm: { label: 'Storm', icon: 'thunderstorm-outline' },
 };
-
-export const SETTING_META: Record<Setting, { label: string; icon: IconName }> = {
-  any: { label: 'Any', icon: 'ellipse-outline' },
-  city: { label: 'City', icon: 'business-outline' },
-  nature: { label: 'Nature', icon: 'leaf-outline' },
-  indoors: { label: 'Indoors', icon: 'home-outline' },
-  transit: { label: 'Transit', icon: 'train-outline' },
-  gym: { label: 'Gym', icon: 'barbell-outline' },
-};
-
-export const OCCASION_META: Record<Occasion, { label: string; icon: IconName }> = {
-  game: { label: occasionLabel('game'), icon: 'trophy-outline' },
-  workout: { label: occasionLabel('workout'), icon: 'barbell-outline' },
-  focus: { label: occasionLabel('focus'), icon: 'glasses-outline' },
-  party: { label: occasionLabel('party'), icon: 'sparkles-outline' },
-  travel: { label: occasionLabel('travel'), icon: 'airplane-outline' },
-  wind_down: { label: occasionLabel('wind_down'), icon: 'bed-outline' },
-  date: { label: occasionLabel('date'), icon: 'heart-outline' },
-};
-
-export const PLACE_META: Record<PlaceKind, { label: string; icon: IconName }> = {
-  home: { label: 'Home', icon: 'home-outline' },
-  gym: { label: 'Gym', icon: 'barbell-outline' },
-  park: { label: 'Park', icon: 'leaf-outline' },
-  commute: { label: 'Commute', icon: 'train-outline' },
-  city: { label: 'City', icon: 'business-outline' },
-};
-
-const PACE_WORD = {
-  still: 'still',
-  stroll: 'stroll',
-  walk: 'walk',
-  brisk: 'brisk',
-  run: 'run',
-} as const;
-
-const TIME_WORD = {
-  morning: 'morning',
-  afternoon: 'afternoon',
-  evening: 'evening',
-  night: 'night',
-} as const;
 
 /** "slow rainy walk" becomes "Slow rainy walk". */
 export function capitalise(text: string): string {
@@ -81,25 +37,9 @@ export function formatMs(ms: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** "Rain · 9°", or just "Rain" when the temperature is unknown. */
-export function formatWeather(weather: Weather, temperatureC?: number | null): string {
-  const label = WEATHER_META[weather].label;
-  return typeof temperatureC === 'number' ? `${label} · ${Math.round(temperatureC)}°` : label;
-}
-
 /** "92 steps/min", or "Standing still" when there are no steps. */
 export function formatCadence(cadenceSpm: number): string {
   return cadenceSpm < 1 ? 'Standing still' : `${Math.round(cadenceSpm)} steps/min`;
-}
-
-/** The slider readout: "112 steps/min · brisk". */
-export function formatCadenceWithPace(cadenceSpm: number): string {
-  return `${Math.round(cadenceSpm)} steps/min · ${PACE_WORD[paceFor(cadenceSpm)]}`;
-}
-
-/** The slider readout: "11:30 PM · night". */
-export function formatHourWithTimeOfDay(localHour: number): string {
-  return `${formatClock(localHour)} · ${TIME_WORD[timeOfDayFor(localHour)]}`;
 }
 
 /** "Calmer for 2 more cues", or null when no nudge is being carried. */

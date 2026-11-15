@@ -68,8 +68,9 @@ export type SessionDeps = {
   audio: TransportAudio;
   sensing: {
     getSnapshot(): SensingSnapshot;
-    startLive(): Promise<void>;
-    stopLive(): void;
+    /** Gathers the signals if the setup sequence has not already done so. Never rejects. */
+    prepare(): Promise<void>;
+    stop(): void;
     setEnergyBias(bias: number): void;
     noteOccasionRefused(): void;
     forgetOccasionRefusal(): void;
@@ -79,6 +80,10 @@ export type SessionDeps = {
     whenReady(): Promise<string>;
   };
   getBackend(): Backend | null;
+  /** A pick has been chosen (its audio is about to load). */
+  onPick?(track: Track, scene: Scene): void;
+  /** `stop()` was called, whatever the session was doing. */
+  onStop?(): void;
   /** False while the app is in the background. */
   isForeground(): boolean;
   /** Called at the beginning of `start()`, before anything else: stops replay. */
@@ -157,6 +162,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
 
   /** Stops scoring: fades out, turns the sensors off, clears any error. */
   readonly stop = (): void => {
+    this.deps.onStop?.();
     if (this.store.get().status === 'idle') {
       this.store.patch({ error: null });
       return;
@@ -276,7 +282,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
         nudge: request.nudge,
         energyBias: bias,
         excludeDeezerIds: this.heldIds(),
-        weatherFromLocation: sensed.mode === 'simulated' && sensed.sim.weatherSource === 'location',
+        weatherIsReal: sensed.sources.weather === 'device',
       };
 
       let result: PickResult | null = null;
@@ -309,6 +315,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
       }
 
       if (result && result.track && result.track.previewUrl) {
+        this.deps.onPick?.(result.track, result.scene);
         return {
           url: result.track.previewUrl,
           meta: {
@@ -386,12 +393,10 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
   // ---------------------------------------------------------------- internals
 
   private async beginWhenSensorsAreUp(run: number): Promise<void> {
-    if (this.deps.sensing.getSnapshot().mode === 'live') {
-      try {
-        await this.deps.sensing.startLive();
-      } catch {
-        // The session runs without sensors, at cadence zero.
-      }
+    try {
+      await this.deps.sensing.prepare();
+    } catch {
+      // The session runs on whatever is known.
     }
     if (run !== this.run) return;
     this.transport.begin({ kind: 'start' }, CONFIG.audio.firstFadeInMs);
@@ -404,7 +409,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
     this.currentPlay = null;
     this.divergedSince = null;
     this.targetFor = null;
-    this.deps.sensing.stopLive();
+    this.deps.sensing.stop();
     this.deps.sensing.setEnergyBias(0);
     this.store.set({ ...IDLE, error });
   }

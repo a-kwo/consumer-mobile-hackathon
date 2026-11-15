@@ -1,32 +1,23 @@
 import { useReplayBarInset } from '@/components/replay';
+import { SceneView } from '@/components/scene/scene-view';
 import { Screen } from '@/components/ui';
-import { NowIdleView } from '@/components/now/now-idle-view';
-import { NowPlayingView } from '@/components/now/now-playing-view';
-import { useReplay, useSensing, useSession } from '@/lib/score';
+import { useSensing, useSession } from '@/lib/score';
 
 /**
- * Now: the album cover with the cymatic figure around it, the scene as a
- * sentence, the song and why it was picked. Idle, the same page waits with a
- * paper cover and one control to start.
+ * Scene: the first screen. One button sets the scene: Score reads where you
+ * are, the weather, the hour, your calendar and your pace, shows each finding
+ * as it arrives, picks the first song and moves to Now. Afterwards this tab is
+ * the reading of the moment, kept up to date.
  */
-export default function NowScreen() {
-  const session = useSession();
+export default function SceneScreen() {
   const sensing = useSensing();
-  const replay = useReplay();
+  const session = useSession();
   // Zero unless a replay is playing: then the content ends above the replay bar.
   const replayInset = useReplayBarInset();
 
-  const active = session.status !== 'idle';
-
   return (
-    <Screen
-      contentStyle={{ paddingBottom: replayInset }}
-      testID="now-screen">
-      {active ? (
-        <NowPlayingView sensing={sensing} session={session} />
-      ) : (
-        <NowIdleView replay={replay} sensing={sensing} session={session} />
-      )}
+    <Screen contentStyle={{ paddingBottom: replayInset }} testID="scene-screen">
+      <SceneView sensing={sensing} session={session} />
     </Screen>
   );
 }

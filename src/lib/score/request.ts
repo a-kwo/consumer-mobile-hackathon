@@ -16,17 +16,17 @@ export type PickInput = {
   /** The occasion steering this pick, when there is one. */
   occasion?: ActiveOccasion | null;
   /**
-   * Simulated mode only: the context's weather is the real weather at its
-   * coordinates, so no override is sent and the server resolves it there.
+   * The context's weather is the real weather at its coordinates: no override
+   * is sent and the server resolves it there. Otherwise (a demo or pinned
+   * weather) it is sent as an override, which wins on the server.
    */
-  weatherFromLocation?: boolean;
+  weatherIsReal?: boolean;
 };
 
 /**
- * Coordinates are sent whenever the context has them (live fixes, or the
- * location set in manual mode), so the server can resolve real weather there.
- * In simulated mode the weather is also sent as an override, which wins on the
- * server, unless it is the location's own weather. Optional fields are left out rather
+ * Coordinates are sent whenever the context has them, so the server can resolve
+ * real weather there. A weather that is not the real one at those coordinates
+ * (a demo fallback, a scenario's pinned weather) is also sent as an override. Optional fields are left out rather
  * than sent as undefined. Of an occasion only the id and the minutes until it
  * starts are sent.
  */
@@ -43,11 +43,10 @@ export function buildPickArgs(input: PickInput): PickArgs {
     args.lat = context.lat;
     args.lon = context.lon;
   }
-  if (context.simulated) {
-    if (!(input.weatherFromLocation && located)) args.weatherOverride = context.weather;
-  } else if (context.speedMps !== undefined) {
-    args.speedMps = context.speedMps;
+  if (!(input.weatherIsReal && located) && context.weather !== 'any') {
+    args.weatherOverride = context.weather;
   }
+  if (context.speedMps !== undefined) args.speedMps = context.speedMps;
   if (input.occasion) {
     args.occasion = input.occasion.id;
     args.minutesUntil = input.occasion.minutesUntil;
@@ -59,12 +58,11 @@ export function buildPickArgs(input: PickInput): PickArgs {
 }
 
 /**
- * The context to store with a play. In live mode the server may know the
+ * The context to store with a play. The server may know the
  * weather before the phone does (it resolves it from the coordinates), so the
  * scene it returned fills in what the phone's context is missing.
  */
 export function contextForPlay(context: PlayContext, scene: Scene): PlayContext {
-  if (context.simulated) return context;
   const next: PlayContext = { ...context };
   if (next.weather === 'any' && scene.weather !== 'any') next.weather = scene.weather;
   if (next.temperatureC === undefined && scene.temperatureC !== null) {

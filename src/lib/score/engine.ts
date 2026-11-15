@@ -22,6 +22,7 @@ import { reportError } from './async';
 import { CONFIG } from './config';
 import { ReplayController } from './replay';
 import { SessionController } from './session';
+import { SetupController } from './setup';
 import { Store } from './store';
 import type { Backend, PlaybackProgress } from './types';
 
@@ -34,6 +35,7 @@ export class ScoreEngine {
   readonly sensing: SensingController;
   readonly session: SessionController;
   readonly replay: ReplayController;
+  readonly setup: SetupController;
   readonly progress = new Store<PlaybackProgress>(NOT_PLAYING);
 
   private readonly audio: Crossfader;
@@ -61,6 +63,16 @@ export class ScoreEngine {
       getBackend,
       isForeground,
       onWillStart: () => this.replay.stop(),
+      onPick: (track, scene) => this.setup.notePick(track, scene),
+      onStop: () => this.setup.noteStop(),
+    });
+    this.setup = new SetupController({
+      sensing: this.sensing,
+      session: {
+        getSnapshot: this.session.store.get,
+        start: () => this.session.start(),
+        stop: () => this.session.stop(),
+      },
     });
     this.replay = new ReplayController({
       audio: this.audio,
@@ -86,6 +98,7 @@ export class ScoreEngine {
     this.subscriptions = [
       () => appState.remove(),
       this.session.store.subscribe(this.onActivity),
+      this.session.store.subscribe(() => this.setup.noteSession(this.session.store.get())),
       this.replay.store.subscribe(this.onActivity),
     ];
     this.ensureAudioMode();
@@ -99,6 +112,7 @@ export class ScoreEngine {
   unmount(): void {
     if (!this.mounted) return;
     this.mounted = false;
+    this.setup.dispose();
     this.session.dispose();
     this.replay.dispose();
     for (const unsubscribe of this.subscriptions) unsubscribe();

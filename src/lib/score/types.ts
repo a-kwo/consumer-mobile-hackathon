@@ -9,75 +9,67 @@ import type { ActiveOccasion } from '../../../convex/lib/occasion';
 import type { LocationStatus, PlaceResult, ScoreLocation } from '../sensing/location';
 import type { PlaceKind, SavedPlace } from '../sensing/places';
 import type {
-  Occasion,
   PlayContext,
   Profile,
   Scene,
-  Setting,
   Track,
   Weather,
 } from '../../../convex/lib/validators';
 
 // ---------------------------------------------------------------- sensing
 
-export type SensingMode = 'live' | 'simulated';
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 
-/** Values set on the Simulator screen. `localHour` is a float, 0 to 24. */
-export type SimValues = {
-  cadenceSpm: number;
-  localHour: number;
-  weather: Weather;
-  setting: Setting;
-  /** The simulated upcoming event; null or absent for none. */
-  occasion?: Occasion | null;
-  /** Minutes until that event starts; zero means it is underway. */
-  minutesUntil?: number;
-};
-
-/** Where a simulator field's value comes from: the user's pick, or the location. */
-export type SimSource = 'location' | 'manual';
-
-/**
- * The simulator values in effect. With a location set, `weather` and `setting`
- * follow it until the user picks them through `setSim`; the sources say which.
- */
-export type SimView = SimValues & { weatherSource: SimSource; settingSource: SimSource };
+/** The five things a pick is made from. */
+export type SignalId = 'place' | 'weather' | 'time' | 'calendar' | 'pace';
+/** `device`: really sensed. `demo`: from a demo scenario, because the device could not say. */
+export type SignalSource = 'device' | 'demo';
+/** What sensing one signal found, as a short line for the user, and where it came from. */
+export type SignalFinding = { detail: string; source: SignalSource };
 
 export type { LocationStatus, PlaceResult, ScoreLocation };
 
 /** `'unavailable'` when this build or platform has no calendar module. */
 export type CalendarAccess = PermissionState | 'unavailable';
 
-/** The latest readings from the phone's sensors. */
+/** The readings in effect, whatever their source. */
 export type LiveReadings = {
-  /** Steps per minute, a whole number. Zero until the sensors report. */
+  /** Steps per minute, a whole number. */
   cadenceSpm: number;
-  /** Metres per second from GPS, or null when there is no recent fix. */
+  /** Metres per second from GPS, or null when there is none. */
   speedMps: number | null;
-  /** `'any'` until the weather for the first fix arrives. */
+  /** `'any'` until the weather is known. */
   weather: Weather;
   temperatureC: number | null;
-  /** Street or neighbourhood from reverse geocoding. */
+  /** The short name of the place: street, else area, else city. */
   placeName: string | null;
-  /** The device clock as a float hour, 0 to 24. */
+  /** The hour in effect as a float, 0 to 24: the device clock unless a chosen scenario pins one. */
   localHour: number;
 };
 
+/** The presenter's control over the demo scenarios. */
+export type DemoControl = {
+  scenarios: readonly { id: string; label: string }[];
+  /** The scenario chosen outright, or null while the app senses for itself. */
+  activeId: string | null;
+  /** Chooses a scenario (it then overrides the device), or with null releases it. */
+  choose(id: string | null): void;
+};
+
 export type SensingSnapshot = {
-  mode: SensingMode;
-  liveAvailable: boolean;
   permissions: { motion: PermissionState; location: PermissionState };
-  sim: SimView;
+  /** Where each signal comes from right now; null while it has not been sensed. */
+  sources: Record<SignalId, SignalSource | null>;
   live: LiveReadings;
   context: PlayContext;
   scene: Scene;
-  /** Where the user is, by name; null when not known. */
+  /** Where the user is, by name; null when not known (or at home in the demo). */
   location: ScoreLocation | null;
   locationStatus: LocationStatus;
-  /** The occasion steering picks right now: the simulated one, or the calendar's in live mode. */
+  demo: DemoControl;
+  /** The occasion steering picks right now: the calendar's next event, or a scenario's. */
   occasion: ActiveOccasion | null;
-  /** Whether the user turned calendar reading on. It is only ever read in live mode. */
+  /** Whether the device calendar is being read. */
   calendarEnabled: boolean;
   calendarAccess: CalendarAccess;
   /** A sentence about the calendar or the occasion for the user, or null. */
@@ -92,6 +84,29 @@ export type SensingSnapshot = {
 };
 
 export type { PlaceKind, SavedPlace };
+
+// ---------------------------------------------------------------- setup
+
+export type SetupStepId = SignalId | 'music';
+
+export type SetupStep = {
+  id: SetupStepId;
+  status: 'waiting' | 'working' | 'done';
+  /** Short present-tense line while working, e.g. "Finding where you are". */
+  title: string;
+  /** The finding once done, e.g. "5th Avenue, New York". Null until done. */
+  detail: string | null;
+  /** Null until done, and always null for 'music'. */
+  source: SignalSource | null;
+};
+
+export type SetupSnapshot = {
+  status: 'idle' | 'running' | 'done' | 'failed';
+  steps: readonly SetupStep[];
+  /** The scene built from the signals gathered so far; null before the first step finishes. */
+  scene: Scene | null;
+  error: string | null;
+};
 
 // ---------------------------------------------------------------- session
 

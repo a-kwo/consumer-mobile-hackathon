@@ -328,9 +328,9 @@ export default function SoundtrackScreen() {
   } else if (isToday) {
     empty = (
       <EmptyState
-        actionLabel="Go to Now"
+        actionLabel="Set the scene"
         fill={false}
-        message="Start scoring on the Now tab and each track will land here with a title of its own."
+        message="Set the scene and each track will land here with a title of its own."
         onAction={() => router.navigate('/')}
         testID="ost-empty"
         title="Nothing scored yet"

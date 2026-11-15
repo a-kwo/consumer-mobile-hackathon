@@ -1,5 +1,5 @@
 /**
- * Where the user is, by name: the `location` the screens show in every mode.
+ * Where the user is, by name: the `location` the screens show.
  *
  * A location comes from the device (one position, looked up by name through
  * the backend) or from a place the user chose in a search. The last chosen one
@@ -23,8 +23,8 @@ export type ScoreLocation = {
   setting: Setting;
   lat: number;
   lon: number;
-  /** `device`: found by the phone or browser. `chosen`: picked from a search. */
-  source: 'device' | 'chosen';
+  /** `device`: found by the phone or browser. `chosen`: picked from a search. `demo`: a demo scenario's place. */
+  source: 'device' | 'chosen' | 'demo';
 };
 
 export type LocationStatus = 'idle' | 'locating' | 'denied' | 'unavailable' | 'error';

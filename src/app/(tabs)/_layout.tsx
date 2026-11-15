@@ -5,7 +5,8 @@ import { TabBar, TabBarInsetProvider } from '@/components/ui';
 import { colors } from '@/theme';
 
 /**
- * The four tabs. These are Expo Router's JavaScript tabs, because the tab bar
+ * The four tabs: Scene (the landing route, `/`), Now (`/now`), Soundtrack and
+ * Friends. These are Expo Router's JavaScript tabs, because the tab bar
  * is Score's own (`TabBar`: words only, 56 high, a hairline on top, the active
  * tab in ink with a short underline) and the native tab bar cannot be drawn
  * that way.
@@ -19,11 +20,13 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          // Tab content dissolves rather than cuts, which also carries the move from Scene to Now.
+          animation: 'fade',
           sceneStyle: { backgroundColor: colors.paper },
         }}
         tabBar={(props) => <TabBar {...props} />}>
-        <Tabs.Screen name="index" options={{ title: 'Now' }} />
-        <Tabs.Screen name="simulator" options={{ title: 'Scene' }} />
+        <Tabs.Screen name="index" options={{ title: 'Scene' }} />
+        <Tabs.Screen name="now" options={{ title: 'Now' }} />
         <Tabs.Screen name="ost" options={{ title: 'Soundtrack' }} />
         <Tabs.Screen name="feed" options={{ title: 'Friends' }} />
       </Tabs>
