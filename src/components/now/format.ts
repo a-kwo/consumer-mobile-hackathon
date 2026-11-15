@@ -1,5 +1,5 @@
 /**
- * Wording and formatting shared by the Now and Simulator screens: clock times,
+ * Wording and formatting shared by the Now and Scene screens: clock times,
  * weather and setting names with their icons, and the small phrases built from
  * the engine's values.
  */

@@ -23,7 +23,7 @@ export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft }: Props)
   return (
     <Surface style={styles.card} variant="raised">
       <AppText variant="overline">
-        {mode === 'live' ? 'Scene from live sensors' : 'Scene preview'}
+        {mode === 'live' ? 'Your scene right now' : 'The scene you set'}
       </AppText>
       <View style={styles.label}>
         <AppText

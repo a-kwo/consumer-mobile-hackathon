@@ -48,11 +48,14 @@ const SETTING_OPTIONS: readonly Option<Setting>[] = SETTINGS.map((value) => ({
 }));
 
 /**
- * Simulator: the director's console. It sets the context by hand (or shows the
- * live readings), previews the scene that context makes, and carries its own
- * transport so a whole demo can be run from this one screen.
+ * The Scene tab (the route keeps its original file name). Score either senses
+ * the scene automatically or the user sets it by hand here: a moment in one
+ * tap, or pace, time, weather and setting one by one. The screen previews the
+ * scene those values make and carries its own transport dock.
+ *
+ * The engine calls the hand-set mode 'simulated'; the user sees "Manual".
  */
-export default function SimulatorScreen() {
+export default function SceneScreen() {
   const sensing = useSensing();
   const session = useSession();
   const insets = useScreenInsets();
@@ -64,7 +67,7 @@ export default function SimulatorScreen() {
   const cadence = isLive ? Math.min(MAX_CADENCE, live.cadenceSpm) : sim.cadenceSpm;
   const hour = isLive ? live.localHour : sim.localHour;
 
-  // A preset is a simulated scene, so choosing one also leaves live mode.
+  // A moment is a hand-set scene, so choosing one also switches to manual.
   const applyPreset = (values: SimValues) => {
     if (isLive) setMode('simulated');
     setSim(values);
@@ -80,7 +83,7 @@ export default function SimulatorScreen() {
         testID="sim-scroll">
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <AppText variant="overline">Director’s console</AppText>
+            <AppText variant="overline">Scene</AppText>
             <AppText accessibilityRole="header" variant="displayMedium">
               Set the scene
             </AppText>
@@ -89,25 +92,22 @@ export default function SimulatorScreen() {
         </View>
 
         <SegmentedToggle<SensingMode>
-          accessibilityLabel="Context source"
+          accessibilityLabel="How the scene is set"
           disabled={!liveAvailable && !isLive}
           onChange={setMode}
           options={[
-            { value: 'live', label: 'Live sensors', icon: 'radio-outline' },
-            { value: 'simulated', label: 'Simulated', icon: 'options-outline' },
+            { value: 'live', label: 'Automatic', icon: 'radio-outline' },
+            { value: 'simulated', label: 'Manual', icon: 'options-outline' },
           ]}
           testID="sim-mode-toggle"
           value={mode}
         />
         {!liveAvailable ? (
-          <Notice
-            message={
-              isLive
-                ? 'This device has no step sensor, so live cadence comes from GPS speed, or stays at zero.'
-                : 'Live sensors are not available on this device (no step sensor), so the simulated values are in use.'
-            }
-            testID="sim-live-unavailable"
-          />
+          <AppText align="center" style={styles.hint} testID="sim-live-unavailable" tone="tertiary" variant="caption">
+            {isLive
+              ? 'Without motion sensing, your pace follows GPS speed.'
+              : 'Automatic needs a phone with motion sensing.'}
+          </AppText>
         ) : null}
         {session.error ? (
           <Notice
@@ -129,12 +129,12 @@ export default function SimulatorScreen() {
         {isLive ? <LiveReadingsCard live={live} permissions={sensing.permissions} /> : null}
 
         <View style={styles.section}>
-          <SectionHeader detail="One tap" title="Presets" />
+          <SectionHeader detail="One tap" title="Moments" />
           <PresetGrid current={isLive ? null : sim} onSelect={applyPreset} />
         </View>
 
         <View style={styles.section}>
-          <SectionHeader detail={isLive ? 'From sensors' : undefined} title="Pace and time" />
+          <SectionHeader detail={isLive ? 'Automatic' : undefined} title="Pace and time" />
           <Surface style={styles.sliders}>
             <LabeledSlider
               disabled={isLive}
@@ -170,7 +170,7 @@ export default function SimulatorScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader detail={isLive ? 'From location' : undefined} title="Weather" />
+          <SectionHeader detail={isLive ? 'Automatic' : undefined} title="Weather" />
           <OptionChips
             accessibilityLabel="Weather"
             disabled={isLive}
@@ -220,6 +220,10 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: space.md,
+  },
+  // Sits close under the toggle it explains.
+  hint: {
+    marginTop: -space.md,
   },
   sliders: {
     gap: space.lg,

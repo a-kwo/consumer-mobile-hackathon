@@ -37,8 +37,8 @@ export default function TabsLayout() {
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="simulator">
-          <NativeTabs.Trigger.Label>Simulator</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon md="tune" sf="slider.horizontal.3" />
+          <NativeTabs.Trigger.Label>Scene</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon md="movie" sf="film" />
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="ost">

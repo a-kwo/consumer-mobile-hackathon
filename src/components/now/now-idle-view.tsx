@@ -17,12 +17,9 @@ type Props = {
 
 /** One line about where the context will come from, or null when there is nothing to add. */
 function sourceLine(sensing: SensingApi): string | null {
-  const { mode, liveAvailable, permissions } = sensing;
-  if (mode === 'simulated') {
-    return liveAvailable
-      ? 'Using the values set on the Simulator tab.'
-      : 'No step sensor on this device, so the Simulator tab sets the scene.';
-  }
+  const { mode, permissions } = sensing;
+  // The engine calls the hand-set mode 'simulated'; to the user it is their own scene.
+  if (mode === 'simulated') return 'Scoring the scene you set. Change it on the Scene tab.';
   const motionDenied = permissions.motion === 'denied';
   const locationDenied = permissions.location === 'denied';
   if (motionDenied && locationDenied) {

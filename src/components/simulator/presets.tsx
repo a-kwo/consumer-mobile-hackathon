@@ -6,7 +6,7 @@ import { space } from '@/theme';
 
 export type Preset = { label: string; icon: IconName; values: SimValues };
 
-/** One-tap scenes for the demo. Each sets all four simulator values. */
+/** One-tap moments. Each sets all four scene values (pace, hour, weather, setting). */
 export const PRESETS: readonly Preset[] = [
   {
     label: 'Rainy night walk',
@@ -50,12 +50,12 @@ function matches(a: SimValues, b: SimValues): boolean {
 }
 
 type Props = {
-  /** The simulator's current values, or null when they are not in use (live mode). */
+  /** The hand-set scene values, or null when they are not in use (automatic mode). */
   current: SimValues | null;
   onSelect: (values: SimValues) => void;
 };
 
-/** The presets as a two-column grid. testIDs are `sim-preset-1` to `sim-preset-6`. */
+/** The moments as a two-column grid. testIDs are `sim-preset-1` to `sim-preset-6`. */
 export function PresetGrid({ current, onSelect }: Props) {
   return (
     <View style={styles.grid}>
@@ -64,7 +64,7 @@ export function PresetGrid({ current, onSelect }: Props) {
         return (
           <View key={preset.label} style={styles.cell}>
             <PillButton
-              accessibilityLabel={`Preset: ${preset.label}`}
+              accessibilityLabel={`Moment: ${preset.label}`}
               grow
               haptic="select"
               icon={preset.icon}

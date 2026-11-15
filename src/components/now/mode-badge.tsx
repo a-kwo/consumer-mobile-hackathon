@@ -1,13 +1,17 @@
 import { LiveBadge } from '@/components/ui';
 import type { SensingMode } from '@/lib/score';
 
-/** LIVE (amber) or SIMULATED (blue). The dot pulses only while a session runs. */
+/**
+ * Where the scene comes from: LIVE (amber) while Score senses it automatically,
+ * YOUR SCENE (neutral) when it was set by hand on the Scene tab. The dot pulses
+ * only while a session runs.
+ */
 export function ModeBadge({ mode, active }: { mode: SensingMode; active: boolean }) {
   return (
     <LiveBadge
       active={active}
-      label={mode === 'live' ? 'Live' : 'Simulated'}
-      tone={mode === 'live' ? 'accent' : 'calm'}
+      label={mode === 'live' ? 'Live' : 'Your scene'}
+      tone={mode === 'live' ? 'accent' : 'neutral'}
     />
   );
 }

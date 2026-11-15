@@ -59,9 +59,9 @@ function statusLine(session: SessionApi, previewScene: Scene): { text: string; c
 }
 
 /**
- * The bar docked above the tab bar on the Simulator screen: the song that is
+ * The bar docked above the tab bar on the Scene screen: the song that is
  * playing (cover, title, equalizer, progress) with stop and skip, or the start
- * control when nothing is playing. It stays put while the console scrolls, so
+ * control when nothing is playing. It stays put while the screen scrolls, so
  * a song change is always visible next to the control that caused it.
  */
 export function TransportDock({ session, previewScene, bottomInset }: Props) {
