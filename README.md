@@ -1,56 +1,52 @@
-# Welcome to your Expo app 👋
+# Score
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Score reads your pace, the weather, the time of day and where you are, plays the song that fits the moment, and turns the day into a soundtrack you can share. The design and status are in `PLAN.md`; the look is specified in `05-visual-identity.md`.
 
-## Get started
+## Run it
 
-1. Install dependencies
+There are three ways to run the app. The first two need no build and no queue.
 
-   ```bash
-   npm install
-   ```
+### 1. In a browser (fastest look)
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+npm install
+npx expo start --web
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Open the printed `localhost` address and narrow the window to phone width. Everything works except the cymatic figure around the cover (it is native only) and the step sensor.
 
-### Other setup steps
+### 2. On your own phone with Expo Go (real sensors)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Install **Expo Go** from the App Store or Play Store, then:
 
-## Learn more
+```sh
+npx expo start --go
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Scan the QR code with the phone's camera (iOS) or from inside Expo Go (Android). The phone and the computer must be on the same Wi-Fi; if they cannot see each other, add `--tunnel`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- The step sensor works in Expo Go on iOS. On Android it needs a development build.
+- This is the only way to try Automatic mode (live steps, location and weather) without building the app.
 
-## Join the community
+### 3. On a Revyl cloud device
 
-Join our community of developers creating universal apps.
+```sh
+revyl device start --platform android --app-id d9e67510-f59d-4a41-b692-540e6c253739 --open
+revyl device start --platform ios --app-id 051f1327-94be-4624-93a1-7c647289b5f7 --open
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+These open the latest uploaded build in a browser viewer. Cloud devices have no step sensor, so the scene is set by hand on the Scene tab. Stop devices when you are done (`revyl device stop --all`): the organisation has two shared slots for builds and devices together.
+
+To build a new version: `revyl build --profile preview --platform android --remote` (or `ios`). Android builds start within seconds. iOS builds sometimes wait several minutes for a free machine on Revyl's side; submitting a second iOS build for the same app cancels the first, so submit once and wait.
+
+## Backend
+
+The backend is Convex (`convex/`). `npx convex dev` pushes function changes to your dev deployment. `node scripts/smoke-next.mjs` checks picking, logging and the soundtrack end to end.
+
+## Checks
+
+```sh
+npx tsc --noEmit
+npx expo lint
+npx expo-doctor
+```
