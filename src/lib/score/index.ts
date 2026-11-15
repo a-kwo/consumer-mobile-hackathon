@@ -35,6 +35,11 @@
  *       speed; without either it stays at zero and everything still works.
  *       `setMode('live')` is allowed even when `liveAvailable` is false; it is
  *       up to the screen whether to offer it.
+ *       `occasion` is the upcoming event steering picks, or null: in simulated
+ *       mode `setSim({ occasion, minutesUntil })`, in live mode the next
+ *       recognised calendar event once `setCalendarEnabled(true)` was allowed.
+ *       `scene.occasionLine` says it in words. `savePlace(kind)` tags the
+ *       current position; in live mode a saved place sets `context.setting`.
  *
  *   useSession()           { status, track, scene, isLoadingNext, error,
  *                            energyBias, nudgePicksLeft,
@@ -83,19 +88,24 @@ export { ScoreProvider } from './provider';
 export { useProfile, usePlaybackProgress, useReplay, useSensing, useSession } from './hooks';
 export type { ProfileApi, ReplayApi, SensingApi, SessionApi } from './hooks';
 export type {
+  CalendarAccess,
   LiveReadings,
   NudgeDirection,
   PermissionState,
+  PlaceKind,
   PlaybackProgress,
   ProfilePatch,
   ReplayItem,
   ReplayStatus,
+  SavedPlace,
   SensingMode,
   SessionStatus,
   SimValues,
 } from './types';
+export type { ActiveOccasion } from '../../../convex/lib/occasion';
 export type {
   Nudge,
+  Occasion,
   OstEntry,
   PlayContext,
   Profile,

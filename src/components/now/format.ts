@@ -4,8 +4,9 @@
  * the engine's values.
  */
 import type { IconName } from '@/components/ui';
-import type { Setting, Weather } from '@/lib/score';
+import type { Occasion, PlaceKind, Setting, Weather } from '@/lib/score';
 
+import { occasionLabel } from '../../../convex/lib/occasion';
 import { normalizeHour, paceFor, timeOfDayFor } from '../../../convex/lib/scene';
 
 export const WEATHER_META: Record<Weather, { label: string; icon: IconName }> = {
@@ -25,6 +26,24 @@ export const SETTING_META: Record<Setting, { label: string; icon: IconName }> = 
   indoors: { label: 'Indoors', icon: 'home-outline' },
   transit: { label: 'Transit', icon: 'train-outline' },
   gym: { label: 'Gym', icon: 'barbell-outline' },
+};
+
+export const OCCASION_META: Record<Occasion, { label: string; icon: IconName }> = {
+  game: { label: occasionLabel('game'), icon: 'trophy-outline' },
+  workout: { label: occasionLabel('workout'), icon: 'barbell-outline' },
+  focus: { label: occasionLabel('focus'), icon: 'glasses-outline' },
+  party: { label: occasionLabel('party'), icon: 'sparkles-outline' },
+  travel: { label: occasionLabel('travel'), icon: 'airplane-outline' },
+  wind_down: { label: occasionLabel('wind_down'), icon: 'bed-outline' },
+  date: { label: occasionLabel('date'), icon: 'heart-outline' },
+};
+
+export const PLACE_META: Record<PlaceKind, { label: string; icon: IconName }> = {
+  home: { label: 'Home', icon: 'home-outline' },
+  gym: { label: 'Gym', icon: 'barbell-outline' },
+  park: { label: 'Park', icon: 'leaf-outline' },
+  commute: { label: 'Commute', icon: 'train-outline' },
+  city: { label: 'City', icon: 'business-outline' },
 };
 
 const PACE_WORD = {

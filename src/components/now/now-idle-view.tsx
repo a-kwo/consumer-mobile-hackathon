@@ -7,6 +7,7 @@ import { colors, layout, space } from '@/theme';
 import { ContextChips } from './context-chips';
 import { capitalise } from './format';
 import { ModeBadge } from './mode-badge';
+import { OccasionChip } from './occasion-chip';
 import { ReplayBanner } from './replay-banner';
 
 type Props = {
@@ -84,6 +85,7 @@ export function NowIdleView({ session, sensing, replay }: Props) {
             </AppText>
           </View>
           <ContextChips context={sensing.context} />
+          <OccasionChip scene={sensing.scene} testID="now-occasion" />
         </View>
       </View>
 

@@ -16,6 +16,7 @@ import type * as lib_device from "../lib/device.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_match from "../lib/match.js";
 import type * as lib_names from "../lib/names.js";
+import type * as lib_occasion from "../lib/occasion.js";
 import type * as lib_ost from "../lib/ost.js";
 import type * as lib_preview from "../lib/preview.js";
 import type * as lib_scene from "../lib/scene.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "lib/hash": typeof lib_hash;
   "lib/match": typeof lib_match;
   "lib/names": typeof lib_names;
+  "lib/occasion": typeof lib_occasion;
   "lib/ost": typeof lib_ost;
   "lib/preview": typeof lib_preview;
   "lib/scene": typeof lib_scene;

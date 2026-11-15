@@ -117,12 +117,20 @@ export const CONFIG = {
     weatherTimeoutMs: 10000,
     /** How often the clock-derived local hour is refreshed while sensors are off. */
     clockMs: 60 * 1000,
+    placesStorageKey: 'score.places.v1',
+    calendarStorageKey: 'score.calendar.v1',
+    /** The calendar is read again this often while it is in use, and whenever the app returns. */
+    calendarRefreshMs: 5 * 60 * 1000,
+    /** A position for tagging a place that has not arrived after this long is given up on. */
+    placeFixTimeoutMs: 10000,
   },
 
   simulator: {
     cadenceSpm: 100,
     weather: 'clear',
     setting: 'city',
+    /** Where the "Upcoming event" control starts once an occasion is chosen. */
+    minutesUntil: 45,
   },
 } as const;
 
@@ -138,5 +146,10 @@ export const MESSAGES = {
     no_preview: "Couldn't find a playable song. Try again in a moment.",
     playback: "Couldn't play the music. Try again in a moment.",
   },
+  calendarDenied: 'Calendar access is off, so Score scores without your events. Turn it on in Settings.',
+  calendarUnavailable: 'This build cannot read a calendar. Simulated events still work.',
+  calendarUnreadable: "Couldn't read your calendar just now. Scoring without it.",
+  occasionUnsupported: "The score can't follow events yet, so this cue was picked without one.",
+  placeNoFix: "Couldn't tell where you are. Turn on location and try again.",
   profileUnavailable: "Couldn't save your profile. Check your connection and try again.",
 } as const;

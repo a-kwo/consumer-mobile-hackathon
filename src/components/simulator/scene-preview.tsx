@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Chip, Meter, Surface } from '@/components/ui';
 import { capitalise, nudgeLine } from '@/components/now/format';
+import { OccasionChip } from '@/components/now/occasion-chip';
 import type { Scene, SensingMode } from '@/lib/score';
 import { space } from '@/theme';
 
@@ -54,6 +55,7 @@ export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft }: Props)
             tone={energyBias < 0 ? 'calm' : 'energy'}
           />
         ) : null}
+        <OccasionChip scene={scene} size="sm" testID="sim-occasion-line" />
       </View>
     </Surface>
   );

@@ -14,6 +14,7 @@ import { colors, fonts, space } from '@/theme';
 import { ContextChips } from './context-chips';
 import { capitalise, nudgeLine } from './format';
 import { ModeBadge } from './mode-badge';
+import { OccasionChip } from './occasion-chip';
 import { PlaybackReadout, PulsingCover } from './playback-readout';
 
 /** Phones shorter than this (iPhone SE, small Androids) get the tighter type and gaps. */
@@ -82,6 +83,7 @@ export function NowPlayingView({ session, sensing }: Props) {
       </View>
 
       <ContextChips context={sensing.context} scene={session.scene} />
+      <OccasionChip scene={sensing.scene} testID="now-occasion" />
 
       {/* The cover takes whatever height is left. */}
       <View onLayout={onCoverLayout} style={styles.coverArea}>

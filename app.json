@@ -75,7 +75,13 @@
           ]
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Score looks at your next calendar event to build the music towards it. Event details stay on your phone."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

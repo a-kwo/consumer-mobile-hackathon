@@ -5,16 +5,20 @@
  */
 import { useSyncExternalStore } from 'react';
 
+import type { ActiveOccasion } from '../../../convex/lib/occasion';
 import type { PlayContext, Profile, Scene, Track } from '../../../convex/lib/validators';
 import { useScoreEngine } from './provider';
 import type {
+  CalendarAccess,
   LiveReadings,
   NudgeDirection,
   PermissionState,
+  PlaceKind,
   PlaybackProgress,
   ProfilePatch,
   ReplayItem,
   ReplayStatus,
+  SavedPlace,
   SensingMode,
   SessionStatus,
   SimValues,
@@ -50,6 +54,24 @@ export type SensingApi = {
   context: PlayContext;
   /** What the server would target right now: `buildScene` of the context and the energy bias. */
   scene: Scene;
+  /** The occasion steering picks: the simulator's event, or in live mode the calendar's next one. */
+  occasion: ActiveOccasion | null;
+  /** Whether calendar reading is on. The calendar is only read in live mode. */
+  calendarEnabled: boolean;
+  calendarAccess: CalendarAccess;
+  /** Turning it on asks for calendar access (the first time). Refusal changes nothing else. */
+  setCalendarEnabled(enabled: boolean): void;
+  /** A sentence about the calendar or the occasion, or null. */
+  occasionNotice: string | null;
+  /** Places tagged on this phone, oldest first. They never leave it. */
+  places: readonly SavedPlace[];
+  /** The saved place the phone is in right now, when its position is known. */
+  herePlace: SavedPlace | null;
+  /** Tags the current position; asks for location access if needed. */
+  savePlace(kind: PlaceKind): void;
+  removePlace(id: string): void;
+  isSavingPlace: boolean;
+  placeNotice: string | null;
 };
 
 export type SessionApi = {
@@ -94,7 +116,14 @@ export function useProfile(): ProfileApi {
 export function useSensing(): SensingApi {
   const { sensing } = useScoreEngine();
   const snapshot = useSyncExternalStore(sensing.store.subscribe, sensing.store.get, sensing.store.get);
-  return { ...snapshot, setMode: sensing.setMode, setSim: sensing.setSim };
+  return {
+    ...snapshot,
+    setMode: sensing.setMode,
+    setSim: sensing.setSim,
+    setCalendarEnabled: sensing.setCalendarEnabled,
+    savePlace: sensing.savePlace,
+    removePlace: sensing.removePlace,
+  };
 }
 
 /** The live scoring session. */

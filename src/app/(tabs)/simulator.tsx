@@ -19,11 +19,13 @@ import {
 } from '@/components/now/format';
 import { ModeBadge } from '@/components/now/mode-badge';
 import { useReplayBarInset } from '@/components/replay';
+import { KnownPlaces } from '@/components/simulator/known-places';
 import { LiveReadingsCard } from '@/components/simulator/live-readings';
 import { OptionChips, type Option } from '@/components/simulator/option-chips';
 import { PresetGrid } from '@/components/simulator/presets';
 import { ScenePreview } from '@/components/simulator/scene-preview';
 import { TransportDock } from '@/components/simulator/transport-dock';
+import { UpcomingEvent } from '@/components/simulator/upcoming-event';
 import {
   useSensing,
   useSession,
@@ -182,7 +184,15 @@ export default function SimulatorScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Setting" />
+          <SectionHeader detail={isLive ? 'From calendar' : undefined} title="Upcoming event" />
+          <UpcomingEvent sensing={sensing} />
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader
+            detail={isLive && sensing.herePlace ? 'From a known place' : undefined}
+            title="Setting"
+          />
           <OptionChips
             accessibilityLabel="Setting"
             disabled={isLive}
@@ -191,6 +201,11 @@ export default function SimulatorScreen() {
             testIDPrefix="sim-setting"
             value={isLive ? sensing.context.setting : sim.setting}
           />
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader detail="On this phone" title="Known places" />
+          <KnownPlaces sensing={sensing} />
         </View>
       </ScrollView>
 

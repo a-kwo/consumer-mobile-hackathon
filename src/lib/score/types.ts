@@ -5,7 +5,10 @@
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 
 import type { api } from '../../../convex/_generated/api';
+import type { ActiveOccasion } from '../../../convex/lib/occasion';
+import type { PlaceKind, SavedPlace } from '../sensing/places';
 import type {
+  Occasion,
   PlayContext,
   Profile,
   Scene,
@@ -25,7 +28,14 @@ export type SimValues = {
   localHour: number;
   weather: Weather;
   setting: Setting;
+  /** The simulated upcoming event; null or absent for none. */
+  occasion?: Occasion | null;
+  /** Minutes until that event starts; zero means it is underway. */
+  minutesUntil?: number;
 };
+
+/** `'unavailable'` when this build or platform has no calendar module. */
+export type CalendarAccess = PermissionState | 'unavailable';
 
 /** The latest readings from the phone's sensors. */
 export type LiveReadings = {
@@ -50,7 +60,23 @@ export type SensingSnapshot = {
   live: LiveReadings;
   context: PlayContext;
   scene: Scene;
+  /** The occasion steering picks right now: the simulated one, or the calendar's in live mode. */
+  occasion: ActiveOccasion | null;
+  /** Whether the user turned calendar reading on. It is only ever read in live mode. */
+  calendarEnabled: boolean;
+  calendarAccess: CalendarAccess;
+  /** A sentence about the calendar or the occasion for the user, or null. */
+  occasionNotice: string | null;
+  /** Places tagged on this phone, oldest first. */
+  places: readonly SavedPlace[];
+  /** The saved place the phone is in, when its position is known. */
+  herePlace: SavedPlace | null;
+  /** True while a position is being found for a place being tagged. */
+  isSavingPlace: boolean;
+  placeNotice: string | null;
 };
+
+export type { PlaceKind, SavedPlace };
 
 // ---------------------------------------------------------------- session
 

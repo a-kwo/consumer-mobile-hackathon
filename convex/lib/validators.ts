@@ -11,6 +11,8 @@ export const WEATHERS = ['any', 'clear', 'cloudy', 'fog', 'rain', 'snow', 'storm
 export const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'night'] as const;
 export const SETTINGS = ['any', 'city', 'nature', 'indoors', 'transit', 'gym'] as const;
 export const NUDGES = ['calmer', 'more_energy', 'skip'] as const;
+/** What a calendar event can be recognised as. See lib/occasion.ts. */
+export const OCCASIONS = ['game', 'workout', 'focus', 'party', 'travel', 'wind_down', 'date'] as const;
 
 export const paceV = v.union(
   v.literal('still'),
@@ -43,12 +45,22 @@ export const settingV = v.union(
   v.literal('gym'),
 );
 export const nudgeV = v.union(v.literal('calmer'), v.literal('more_energy'), v.literal('skip'));
+export const occasionV = v.union(
+  v.literal('game'),
+  v.literal('workout'),
+  v.literal('focus'),
+  v.literal('party'),
+  v.literal('travel'),
+  v.literal('wind_down'),
+  v.literal('date'),
+);
 
 export type Pace = Infer<typeof paceV>;
 export type Weather = Infer<typeof weatherV>;
 export type TimeOfDay = Infer<typeof timeOfDayV>;
 export type Setting = Infer<typeof settingV>;
 export type Nudge = Infer<typeof nudgeV>;
+export type Occasion = Infer<typeof occasionV>;
 
 /** The moment, reduced to what matching needs. */
 export const sceneV = v.object({
@@ -68,6 +80,10 @@ export const sceneV = v.object({
   bpm: v.union(v.number(), v.null()),
   /** Outside temperature when the weather came from the weather API. */
   temperatureC: v.union(v.number(), v.null()),
+  /** The calendar occasion steering this scene. Absent when there is none. */
+  occasion: v.optional(occasionV),
+  /** Why the occasion matters right now, e.g. "Game in 45 min · building up". */
+  occasionLine: v.optional(v.string()),
 });
 export type Scene = Infer<typeof sceneV>;
 
@@ -102,6 +118,8 @@ export const playContextV = v.object({
   placeName: v.optional(v.string()),
   lat: v.optional(v.number()),
   lon: v.optional(v.number()),
+  /** The calendar occasion that steered the pick. Only the id: never the event's text. */
+  occasion: v.optional(occasionV),
 });
 export type PlayContext = Infer<typeof playContextV>;
 
