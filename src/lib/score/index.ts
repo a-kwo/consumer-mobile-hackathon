@@ -32,9 +32,11 @@
  *       'done', title, detail, source }. `title` is the line to show while
  *       working ("Finding where you are"); `detail` is the finding once done
  *       ("5th Avenue, New York", "Rain, 12°", "Tuesday evening, 6:42pm",
- *       "Date in 40 min", "A steady walk, 104 steps/min", "Tuning to 104 BPM");
+ *       "Date in 40 min", "A steady walk, 104 steps/min", and for music the
+ *       song, "Break My Stride · Matthew Wilder");
  *       `source` is 'device' or 'demo' (null for music). Each step works for
- *       at least 0.7 s; a signal the device has not given after about 4 s
+ *       at least 0.9 s, and the song is shown for 0.9 s before `status`
+ *       turns 'done' (about 6 s in all when everything answers); a signal the device has not given after about 4 s
  *       comes from the demo source, so the whole thing takes a few seconds.
  *       `scene` is the scene from the signals gathered so far (null before
  *       the first), and the first pick's scene at the end.

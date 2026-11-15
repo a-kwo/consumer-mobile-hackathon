@@ -136,9 +136,11 @@ export const CONFIG = {
 
   setup: {
     /** Each step of the setup sequence shows as working for at least this long... */
-    minStepMs: 700,
+    minStepMs: 900,
     /** ...and its signal has about this long to come from the device before the demo source is used. */
     maxStepMs: 4000,
+    /** The last step's finding (the first song) stays on screen this long before the sequence reports done. */
+    doneHoldMs: 900,
   },
 } as const;
 

@@ -5,8 +5,9 @@
  * demo scenario where it cannot, then starts the session and waits for the
  * first pick.
  *
- * Each step shows as working for at least `minStepMs`, so the sequence reads on
- * screen, and its signal has about `maxStepMs` before the demo source is used,
+ * Each step shows as working for at least `minStepMs`, and the last finding is
+ * held for `doneHoldMs` before the sequence reports done, so it reads on
+ * screen; and its signal has about `maxStepMs` before the demo source is used,
  * so the sequence always completes in a few seconds.
  *
  * Races: `run` is bumped by every begin, reset and stop; whatever an older run
@@ -65,6 +66,8 @@ export class SetupController {
   private readonly timers = new TimerBag();
   /** True while `begin` stops the old session: that stop is part of starting over, not a cancel. */
   private restarting = false;
+  /** The sequence has handed over to the session (the 'music' step began). */
+  private sessionStarted = false;
   /** Set while the 'music' step waits for the first pick. */
   private awaitingPick: { run: number; since: number } | null = null;
 
@@ -80,7 +83,7 @@ export class SetupController {
 
   /** Back to 'idle'. Abandons a sequence in progress; does not stop music that is already playing. */
   readonly reset = (): void => {
-    const wasGathering = this.store.get().status === 'running' && this.awaitingPick === null;
+    const wasGathering = this.store.get().status === 'running' && !this.sessionStarted;
     this.cancel();
     // Sensors a half-finished sequence turned on have no session to turn them off.
     if (wasGathering) this.deps.sensing.stop();
@@ -90,7 +93,7 @@ export class SetupController {
   /** The session's `stop()` was called: a sequence in progress ends with it. */
   noteStop(): void {
     if (this.restarting || this.store.get().status === 'idle') return;
-    const wasGathering = this.store.get().status === 'running' && this.awaitingPick === null;
+    const wasGathering = this.store.get().status === 'running' && !this.sessionStarted;
     this.cancel();
     if (wasGathering) this.deps.sensing.stop();
     this.store.set(IDLE());
@@ -102,15 +105,29 @@ export class SetupController {
     if (!waiting || waiting.run !== this.run) return;
     this.awaitingPick = null;
     const run = waiting.run;
-    const detail = track.bpm > 0 ? `Tuning to ${Math.round(track.bpm)} BPM` : track.reason;
-    const left = CONFIG.setup.minStepMs - (Date.now() - waiting.since);
-    const finish = () => {
-      if (run !== this.run) return;
-      this.setStep('music', { status: 'done', detail });
-      this.store.patch({ status: 'done', scene });
-    };
-    if (left > 0) void this.timers.sleep(left).then(finish);
-    else finish();
+    const title = typeof track.title === 'string' ? track.title.trim() : '';
+    const artist = typeof track.artist === 'string' ? track.artist.trim() : '';
+    // The payoff: name the song. Without a title, say what it was tuned to.
+    const detail = title
+      ? artist
+        ? `${title} · ${artist}`
+        : title
+      : track.bpm > 0
+        ? `Tuning to ${Math.round(track.bpm)} BPM`
+        : track.reason;
+    const left = Math.max(0, CONFIG.setup.minStepMs - (Date.now() - waiting.since));
+    void this.timers
+      .sleep(left)
+      .then(() => {
+        if (run !== this.run) return null;
+        this.setStep('music', { status: 'done', detail });
+        this.store.patch({ scene });
+        // Let the finding be read before the screen moves on.
+        return this.timers.sleep(CONFIG.setup.doneHoldMs);
+      })
+      .then(() => {
+        if (run === this.run && this.store.get().status === 'running') this.store.patch({ status: 'done' });
+      });
   }
 
   /** The session changed: if it went idle, the setup it belonged to is over. */
@@ -118,7 +135,7 @@ export class SetupController {
     const { status } = this.store.get();
     if (session.status !== 'idle' || status === 'idle' || status === 'failed') return;
     // Gathering signals happens before the session starts; idle then is expected.
-    if (status === 'running' && this.awaitingPick === null) return;
+    if (status === 'running' && !this.sessionStarted) return;
     if (this.restarting) return;
     this.cancel();
     // 'failed' is for a session that could not start; one that ended later just ends.
@@ -135,6 +152,7 @@ export class SetupController {
 
   private cancel(): void {
     this.run += 1;
+    this.sessionStarted = false;
     this.awaitingPick = null;
     this.timers.clear();
   }
@@ -179,6 +197,7 @@ export class SetupController {
 
     sensing.activate(sensingRun);
     this.setStep('music', { status: 'working' });
+    this.sessionStarted = true;
     this.awaitingPick = { run, since: Date.now() };
     session.start();
   }
