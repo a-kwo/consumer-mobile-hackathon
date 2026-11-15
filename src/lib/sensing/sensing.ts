@@ -49,6 +49,11 @@ const isWeb = () => Platform.OS === 'web';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+/** The device clock as a float hour rounded to the nearest quarter, for the simulator's default. */
+function quarterHourOf(date: Date): number {
+  return Math.round((date.getHours() + date.getMinutes() / 60) * 4) / 4;
+}
+
 function toPermissionState(response: { granted: boolean; status: string }): PermissionState {
   if (response.granted) return 'granted';
   return response.status === 'denied' ? 'denied' : 'unknown';
@@ -72,6 +77,8 @@ export class SensingController {
   private mounted = false;
   private appActive = true;
   private userChoseMode = false;
+  /** Until the user sets the simulator's hour, it follows the device clock. */
+  private userSetSimHour = false;
   private probeEpoch = 0;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
   private readonly timers = new TimerBag();
@@ -108,7 +115,7 @@ export class SensingController {
     this.mode = this.liveAvailable ? 'live' : 'simulated';
     this.sim = {
       cadenceSpm: CONFIG.simulator.cadenceSpm,
-      localHour: now.getHours(),
+      localHour: quarterHourOf(now),
       weather: CONFIG.simulator.weather,
       setting: CONFIG.simulator.setting,
     };
@@ -147,6 +154,7 @@ export class SensingController {
     }
     if (typeof patch.localHour === 'number' && Number.isFinite(patch.localHour)) {
       next.localHour = clamp(patch.localHour, 0, 24);
+      this.userSetSimHour = true;
     }
     // Unknown values are ignored: `buildScene` has no entry for them.
     if (patch.weather !== undefined && WEATHERS.includes(patch.weather)) {
@@ -266,7 +274,11 @@ export class SensingController {
 
   private readonly refreshClock = (): void => {
     try {
-      this.setLive({ localHour: localHourOf(new Date()) });
+      const now = new Date();
+      this.setLive({ localHour: localHourOf(now) });
+      if (!this.userSetSimHour) {
+        this.sim = reuseIfEqual(this.sim, { ...this.sim, localHour: quarterHourOf(now) });
+      }
       this.publish();
     } catch (error) {
       reportError('clock', error);

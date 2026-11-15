@@ -22,7 +22,7 @@ import {
   SectionHeader,
   useScreenInsets,
 } from '@/components/ui';
-import { useProfile, useReplay } from '@/lib/score';
+import { useProfile, useReplay, type OstEntry } from '@/lib/score';
 import { colors, ink, layout, space } from '@/theme';
 
 function goBack() {
@@ -79,12 +79,20 @@ export default function FriendScreen() {
   const covers = mosaicCovers(entries);
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
+  // The replay plays a snapshot of the list taken when it started, and the live
+  // list can shift under it (the oldest cue drops off), so the playing row is
+  // matched on the item itself, never on its index.
+  const isReplaying = (entry: OstEntry) =>
+    playingHere &&
+    replay.item?.deezerId === entry.deezerId &&
+    replay.item?.subtitle === entry.title;
+
   const onRowPress = (index: number) => {
-    if (playingHere && replay.index === index) replay.stop();
+    if (isReplaying(entries[index])) replay.stop();
     else play(index);
   };
-  const rowState = (index: number): CueRowState => {
-    if (!playingHere || replay.index !== index) return 'idle';
+  const rowState = (entry: OstEntry): CueRowState => {
+    if (!isReplaying(entry)) return 'idle';
     return replay.status === 'loading' ? 'loading' : 'playing';
   };
 
@@ -169,7 +177,7 @@ export default function FriendScreen() {
               entry={entry}
               index={index}
               onPress={onRowPress}
-              state={rowState(index)}
+              state={rowState(entry)}
               testID={`friend-row-${index + 1}`}
             />
           )}

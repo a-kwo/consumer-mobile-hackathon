@@ -57,16 +57,24 @@ export default function SoundtrackScreen() {
   const replayingHere = replay.listId === listId;
   const scoringLive = isToday && session.status !== 'idle';
 
+  // The replay plays a snapshot of the list taken when it started, and the live
+  // list can shift under it (the oldest cue drops off), so the playing row is
+  // matched on the item itself, never on its index.
+  const isReplaying = (entry: OstEntry) =>
+    replayingHere &&
+    replay.item?.deezerId === entry.deezerId &&
+    replay.item?.subtitle === entry.title;
+
   const onRowPress = (index: number) => {
-    if (replayingHere && replay.index === index) {
+    if (isReplaying(entries[index])) {
       replay.stop();
     } else {
       replay.play(listId, toReplayItems(entries), index);
     }
   };
 
-  const rowState = (index: number): CueRowState => {
-    if (!replayingHere || replay.index !== index) return 'idle';
+  const rowState = (entry: OstEntry): CueRowState => {
+    if (!isReplaying(entry)) return 'idle';
     return replay.status === 'loading' ? 'loading' : 'playing';
   };
 
@@ -202,7 +210,7 @@ export default function SoundtrackScreen() {
               entry={item}
               index={index}
               onPress={onRowPress}
-              state={rowState(index)}
+              state={rowState(item)}
               testID={`ost-row-${index + 1}`}
             />
           )}

@@ -39,7 +39,12 @@ function statusLine(session: SessionApi, previewScene: Scene): { text: string; c
   if (session.status === 'starting' || !session.track || !session.scene) {
     return { text: 'Finding the first cue', changing: false };
   }
+  // The engine measures the gap with the nudge the song was picked with, which
+  // is not public. Within one scene key the context alone can never move the
+  // target energy past the threshold, so a gap with an unchanged key is only a
+  // nudge starting or wearing off, and no early change will follow.
   const moved =
+    previewScene.key !== session.scene.key &&
     Math.abs(previewScene.energy - session.scene.energy) > TUNING.playback.energyDelta;
   if (moved) {
     return {

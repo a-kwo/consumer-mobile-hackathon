@@ -138,7 +138,7 @@ export class ScoreEngine {
     if (!this.mounted) return;
     const sessionActive = this.sessionActive;
     if (sessionActive || this.replayActive) this.ensureAudioMode();
-    this.setKeepAwake(sessionActive);
+    this.setKeepAwake(sessionActive || this.replayActive);
     this.syncTick();
   };
 
@@ -225,7 +225,7 @@ export class ScoreEngine {
     });
   }
 
-  /** Keeps the screen on while a live session runs. Calls are serialised. */
+  /** Keeps the screen on while a live session or a replay runs. Calls are serialised. */
   private setKeepAwake(on: boolean): void {
     if (on === this.keepAwake) return;
     this.keepAwake = on;

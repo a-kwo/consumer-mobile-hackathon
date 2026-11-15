@@ -12,6 +12,7 @@ import {
 import { useOst } from '@/components/ost/queries';
 import { useMinuteClock } from '@/components/ost/use-clock';
 import { captureCard } from '@/components/share/capture';
+import { useModalTopPadding } from '@/components/share/modal-insets';
 import { SHARE_CARD_ASPECT, ShareCard } from '@/components/share/share-card';
 import {
   AppText,
@@ -46,6 +47,8 @@ export default function ShareScreen() {
   const dayStart = Number.isFinite(requested) && requested > 0 ? startOfLocalDay(requested) : today;
   const ost = useOst(deviceId, dayStart, addDays(dayStart, 1));
   const covers = ost ? mosaicCovers(ost.entries) : [];
+
+  const topPadding = useModalTopPadding();
 
   const cardRef = useRef<ComponentRef<typeof View>>(null);
   const [box, setBox] = useState<{ width: number; height: number } | null>(null);
@@ -123,7 +126,11 @@ export default function ShareScreen() {
   };
 
   return (
-    <Screen contentStyle={styles.content} coverUrl={covers[0]} testID="share-screen">
+    <Screen
+      contentStyle={[styles.content, { paddingTop: topPadding }]}
+      coverUrl={covers[0]}
+      edges="bottom"
+      testID="share-screen">
       <View style={styles.topBar}>
         <AppText variant="overline">Share card</AppText>
         <IconButton

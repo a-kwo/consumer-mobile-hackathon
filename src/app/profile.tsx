@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useModalTopPadding } from '@/components/share/modal-insets';
 import {
   AppText,
   Avatar,
@@ -27,6 +28,7 @@ function close() {
 /** Edit your own name and emoji: the credit that appears on your share card. Opened as a modal. */
 export default function ProfileScreen() {
   const { profile, update } = useProfile();
+  const topPadding = useModalTopPadding();
 
   // Null means "not edited yet": show whatever the profile says.
   const [draftName, setDraftName] = useState<string | null>(null);
@@ -63,7 +65,11 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen contentStyle={styles.content} scroll testID="profile-screen">
+    <Screen
+      contentStyle={[styles.content, { paddingTop: topPadding }]}
+      edges="bottom"
+      scroll
+      testID="profile-screen">
       <View style={styles.topBar}>
         <AppText variant="overline">Your credit</AppText>
         <IconButton

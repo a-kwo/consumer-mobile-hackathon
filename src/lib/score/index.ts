@@ -23,7 +23,8 @@
  *       `mode` is 'live' or 'simulated'. It starts as 'live' on a real phone
  *       with a pedometer and as 'simulated' everywhere else.
  *       `setSim({ cadenceSpm, localHour, weather, setting })` drives the
- *       simulator. `context` is what a pick would be made from right now and
+ *       simulator. `sim.localHour` follows the device clock (to the quarter
+ *       hour) until `setSim` is first given a `localHour`; then it stays put. `context` is what a pick would be made from right now and
  *       `scene` is `buildScene(context + energy bias)`: use `scene.label` for a
  *       live preview of the title card.
  *       Permission prompts appear only from `setMode('live')` or from
@@ -71,7 +72,7 @@
  *   - The live session and replay share the players: starting one stops the
  *     other.
  *   - Playback is foreground only. The screen is kept awake during a live
- *     session; when the app is backgrounded the audio pauses and it resumes on
+ *     session or a replay; when the app is backgrounded the audio pauses and it resumes on
  *     return.
  *   - Preview URLs expire. They are fetched when needed and never stored;
  *     do not keep `track.previewUrl` anywhere.
