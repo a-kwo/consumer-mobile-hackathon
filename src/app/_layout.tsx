@@ -49,10 +49,6 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <ConvexProvider client={convex}>
         <ScoreProvider>
-          <ThemeProvider value={navigationTheme}> … </ThemeProvider>
-              </ScoreProvider>
-            ─────────────────────────────────────────────────────────────────
-          */}
           <ThemeProvider value={navigationTheme}>
             <Stack
               screenOptions={{
