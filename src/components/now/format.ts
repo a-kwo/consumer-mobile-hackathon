@@ -4,7 +4,7 @@
  * the engine's values.
  */
 import type { IconName } from '@/components/ui';
-import type { Setting, Weather } from '@/lib/score';
+import type { PlayContext, Scene, Setting, Weather } from '@/lib/score';
 
 import { normalizeHour, paceFor, timeOfDayFor } from '../../../convex/lib/scene';
 
@@ -68,14 +68,14 @@ export function formatWeather(weather: Weather, temperatureC?: number | null): s
   return typeof temperatureC === 'number' ? `${label} · ${Math.round(temperatureC)}°` : label;
 }
 
-/** "112 spm", or "Still" below walking pace. */
+/** "92 steps/min", or "Standing still" when there are no steps. */
 export function formatCadence(cadenceSpm: number): string {
-  return paceFor(cadenceSpm) === 'still' && cadenceSpm < 1 ? 'Still' : `${Math.round(cadenceSpm)} spm`;
+  return cadenceSpm < 1 ? 'Standing still' : `${Math.round(cadenceSpm)} steps/min`;
 }
 
-/** The slider readout: "112 spm · brisk". */
+/** The slider readout: "112 steps/min · brisk". */
 export function formatCadenceWithPace(cadenceSpm: number): string {
-  return `${Math.round(cadenceSpm)} spm · ${PACE_WORD[paceFor(cadenceSpm)]}`;
+  return `${Math.round(cadenceSpm)} steps/min · ${PACE_WORD[paceFor(cadenceSpm)]}`;
 }
 
 /** The slider readout: "11:30 PM · night". */
@@ -88,4 +88,69 @@ export function nudgeLine(energyBias: number, nudgePicksLeft: number): string | 
   if (nudgePicksLeft <= 0 || energyBias === 0) return null;
   const word = energyBias < 0 ? 'Calmer' : 'More energy';
   return `${word} for ${nudgePicksLeft} more ${nudgePicksLeft === 1 ? 'cue' : 'cues'}`;
+}
+
+const WEATHER_ADJECTIVE: Record<Weather, string> = {
+  any: '',
+  clear: 'clear',
+  cloudy: 'cloudy',
+  fog: 'foggy',
+  rain: 'rainy',
+  snow: 'snowy',
+  storm: 'stormy',
+};
+
+const SETTING_PHRASE: Record<Setting, string> = {
+  any: '',
+  city: 'in the city',
+  nature: 'in the park',
+  indoors: 'at home',
+  transit: 'on the train',
+  gym: 'at the gym',
+};
+
+/**
+ * The scene as a sentence for the italic scene line: "A slow rainy walk in the
+ * city, late at night", "A sunny afternoon walk in the park". Built from the
+ * scene's parts rather than its label, so it reads as prose.
+ */
+export function sceneSentence(scene: Pick<Scene, 'pace' | 'weather' | 'setting' | 'timeOfDay'>): string {
+  const night = scene.timeOfDay === 'night';
+  const daylight = scene.timeOfDay === 'morning' || scene.timeOfDay === 'afternoon';
+  const adjective =
+    scene.weather === 'clear' && daylight ? 'sunny' : WEATHER_ADJECTIVE[scene.weather];
+  // By day the time is part of the phrase ("morning walk"); at night it trails the sentence.
+  const time = night ? '' : scene.timeOfDay;
+  const join = (...words: string[]) => words.filter(Boolean).join(' ');
+
+  let what: string;
+  if (scene.pace === 'still') {
+    // Standing still at the gym is lifting, not resting.
+    if (scene.setting === 'gym') what = join(time, 'workout');
+    else what = time ? join('quiet', adjective, time) : join('quiet', adjective, 'moment');
+  } else if (scene.pace === 'stroll') what = join('slow', adjective, time, 'walk');
+  else if (scene.pace === 'walk') what = join(adjective, time, 'walk');
+  else if (scene.pace === 'brisk') what = join('brisk', adjective, time, 'walk');
+  else what = join(adjective, time, 'run');
+
+  const article = /^[aeiou]/.test(what) ? 'An' : 'A';
+  const sentence = join(article, what, SETTING_PHRASE[scene.setting]);
+  return night ? `${sentence}, late at night` : sentence;
+}
+/**
+ * The meta line: "92 steps/min · Rain, 9°". The weather falls back to the one
+ * the server resolved for the playing song when the context has none.
+ */
+export function metaLine(context: PlayContext, scene?: Scene | null): string {
+  const weather = context.weather !== 'any' ? context.weather : (scene?.weather ?? 'any');
+  const temperatureC = context.temperatureC ?? scene?.temperatureC ?? null;
+  const parts = [formatCadence(context.cadenceSpm)];
+  if (weather !== 'any') {
+    parts.push(
+      typeof temperatureC === 'number'
+        ? `${WEATHER_META[weather].label}, ${Math.round(temperatureC)}°`
+        : WEATHER_META[weather].label
+    );
+  }
+  return parts.join(' · ');
 }

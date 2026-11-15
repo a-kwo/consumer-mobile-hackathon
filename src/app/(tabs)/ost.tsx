@@ -5,14 +5,14 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
 import {
   addDays,
-  cueCount,
-  cueNumber,
   dayKey,
   formatLongDate,
   mosaicCovers,
   relativeDayLabel,
+  sentenceCase,
   startOfLocalDay,
   toReplayItems,
+  trackCount,
 } from '@/components/ost/format';
 import { useOst } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
@@ -25,16 +25,16 @@ import {
   EmptyState,
   IconButton,
   LiveBadge,
+  PrimaryButton,
   Screen,
-  SectionHeader,
   useScreenInsets,
 } from '@/components/ui';
 import { useProfile, useReplay, useSession, type OstEntry } from '@/lib/score';
-import { layout, space } from '@/theme';
+import { layout, sizes, space } from '@/theme';
 
 const NO_ENTRIES: OstEntry[] = [];
 
-/** The Soundtrack tab: one day as an album, with its cues as the tracklist. */
+/** The Soundtrack tab: one day as a record, with its tracks listed like liner notes. */
 export default function SoundtrackScreen() {
   const { deviceId } = useProfile();
   const replay = useReplay();
@@ -58,7 +58,7 @@ export default function SoundtrackScreen() {
   const scoringLive = isToday && session.status !== 'idle';
 
   // The replay plays a snapshot of the list taken when it started, and the live
-  // list can shift under it (the oldest cue drops off), so the playing row is
+  // list can shift under it (the oldest track drops off), so the playing row is
   // matched on the item itself, never on its index.
   const isReplaying = (entry: OstEntry) =>
     replayingHere &&
@@ -78,80 +78,70 @@ export default function SoundtrackScreen() {
     return replay.status === 'loading' ? 'loading' : 'playing';
   };
 
-  let statusLine = 'Gathering the day’s cues…';
+  let statusLine = 'Gathering the day’s tracks…';
   if (!loading) {
-    if (entries.length === 0) statusLine = isToday ? 'No cues yet today' : 'No cues this day';
-    else statusLine = ost.summary ? `${cueCount(entries.length)} · ${ost.summary}` : cueCount(entries.length);
+    if (entries.length === 0) statusLine = isToday ? 'No tracks yet today' : 'No tracks this day';
+    else {
+      statusLine = ost.summary
+        ? `${trackCount(entries.length)} · ${sentenceCase(ost.summary)}`
+        : trackCount(entries.length);
+    }
   }
 
   const header = (
     <View style={styles.header}>
       <View style={styles.topBar}>
-        <View style={styles.topBarText}>
-          <AppText numberOfLines={1} variant="overline">
-            Original soundtrack
+        <AppText variant="wordmark">Score</AppText>
+        <View style={styles.dayNav}>
+          <IconButton
+            accessibilityLabel="Previous day"
+            icon="chevron-back"
+            onPress={() => setDayOffset(dayOffset - 1)}
+            size="sm"
+            testID="ost-prev-day"
+            variant="ghost"
+          />
+          <AppText numberOfLines={1} style={styles.dayLabel} testID="ost-date" variant="meta">
+            {isToday ? formatLongDate(dayStart) : relativeDayLabel(dayStart, today)}
           </AppText>
-          {scoringLive ? <LiveBadge label="Scoring live" outlined={false} /> : null}
+          <IconButton
+            accessibilityLabel="Next day"
+            disabled={isToday}
+            icon="chevron-forward"
+            onPress={() => setDayOffset(Math.min(0, dayOffset + 1))}
+            size="sm"
+            testID="ost-next-day"
+            variant="ghost"
+          />
         </View>
-        <IconButton
-          accessibilityLabel="Share this soundtrack"
-          disabled={entries.length === 0}
-          icon="share-outline"
-          onPress={() => router.push({ pathname: '/share', params: { day: String(dayStart) } })}
-          testID="ost-share"
-        />
       </View>
 
-      <CoverMosaic
-        accessibilityLabel={`Cover of the soundtrack for ${formatLongDate(dayStart)}`}
-        shadow
-        size={176}
-        style={styles.mosaic}
-        uris={covers}
-      />
-
-      <View style={styles.dayRow}>
-        <IconButton
-          accessibilityLabel="Previous day"
-          icon="chevron-back"
-          onPress={() => setDayOffset(dayOffset - 1)}
-          size="sm"
-          testID="ost-prev-day"
-          variant="ghost"
+      <View style={styles.album}>
+        <CoverMosaic
+          accessibilityLabel={`Cover of the soundtrack for ${formatLongDate(dayStart)}`}
+          size={sizes.soundtrackCover}
+          uris={covers}
         />
-        <View style={styles.dayText}>
-          <AppText align="center" tone={isToday ? 'accent' : 'tertiary'} variant="overline">
-            {relativeDayLabel(dayStart, today)}
+        <View style={styles.albumText}>
+          <AppText accessibilityRole="header" numberOfLines={3} variant="screenTitle">
+            {isToday ? 'Today’s soundtrack' : formatLongDate(dayStart)}
           </AppText>
-          <AppText
-            accessibilityRole="header"
-            adjustsFontSizeToFit
-            align="center"
-            minimumFontScale={0.7}
-            numberOfLines={2}
-            testID="ost-date"
-            variant="displayMedium">
-            {formatLongDate(dayStart)}
+          <AppText testID="ost-summary" variant="meta">
+            {statusLine}
           </AppText>
+          {scoringLive ? <LiveBadge label="Scoring now" /> : null}
+          <PrimaryButton
+            accessibilityLabel="Share this soundtrack"
+            disabled={entries.length === 0}
+            label="Share"
+            onPress={() => router.push({ pathname: '/share', params: { day: String(dayStart) } })}
+            style={styles.share}
+            testID="ost-share"
+          />
         </View>
-        <IconButton
-          accessibilityLabel="Next day"
-          disabled={isToday}
-          icon="chevron-forward"
-          onPress={() => setDayOffset(Math.min(0, dayOffset + 1))}
-          size="sm"
-          testID="ost-next-day"
-          variant="ghost"
-        />
       </View>
 
-      <AppText align="center" style={styles.status} testID="ost-summary" tone="secondary">
-        {statusLine}
-      </AppText>
-
-      {entries.length > 0 ? (
-        <SectionHeader detail={cueNumber(entries.length - 1)} style={styles.section} title="Cues" />
-      ) : null}
+      {entries.length > 0 ? <Divider style={styles.rule} /> : null}
     </View>
   );
 
@@ -161,11 +151,9 @@ export default function SoundtrackScreen() {
   } else if (isToday) {
     empty = (
       <EmptyState
-        actionIcon="play"
         actionLabel="Go to Now"
         fill={false}
-        icon="musical-notes-outline"
-        message="Start scoring on the Now tab and each cue will land here with a title of its own."
+        message="Start scoring on the Now tab and each track will land here with a title of its own."
         onAction={() => router.navigate('/')}
         testID="ost-empty"
         title="Nothing scored yet"
@@ -174,11 +162,9 @@ export default function SoundtrackScreen() {
   } else {
     empty = (
       <EmptyState
-        actionIcon="today-outline"
         actionLabel="Back to today"
         fill={false}
-        icon="moon-outline"
-        message="No cues were logged on this day."
+        message="No tracks were logged on this day."
         onAction={() => setDayOffset(0)}
         testID="ost-empty"
         title="A quiet day"
@@ -188,9 +174,9 @@ export default function SoundtrackScreen() {
 
   return (
     <TabBarProbe>
-      <Screen coverUrl={covers[0]} edges="none" padded={false} testID="ost-screen">
+      <Screen edges="none" padded={false} testID="ost-screen">
         <FlatList
-          ItemSeparatorComponent={CueDivider}
+          ItemSeparatorComponent={RowDivider}
           ListEmptyComponent={empty}
           ListHeaderComponent={header}
           contentContainerStyle={{
@@ -202,8 +188,8 @@ export default function SoundtrackScreen() {
           contentInsetAdjustmentBehavior="never"
           data={entries}
           keyExtractor={(entry) => entry.playId}
-          // New cues are appended, so the offset holds on its own; this also
-          // holds it if the oldest cue ever drops off the top of a long day.
+          // New tracks are appended, so the offset holds on its own; this also
+          // holds it if the oldest track ever drops off the top of a long day.
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
           renderItem={({ item, index }) => (
             <CueRow
@@ -222,13 +208,13 @@ export default function SoundtrackScreen() {
   );
 }
 
-function CueDivider() {
+function RowDivider() {
   return <Divider inset={CUE_TEXT_INSET} />;
 }
 
 const styles = StyleSheet.create({
   header: {
-    alignItems: 'stretch',
+    gap: space.xl,
   },
   topBar: {
     flexDirection: 'row',
@@ -236,32 +222,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: layout.minTouch,
   },
-  topBarText: {
-    flex: 1,
+  dayNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
-  },
-  mosaic: {
-    alignSelf: 'center',
-    marginTop: space.lg,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    marginTop: space.xl,
-  },
-  dayText: {
-    flex: 1,
     gap: space.xs,
+    flexShrink: 1,
+    // The ghost button's glyph sits inside a 36 pt circle; pull it to the page margin.
+    marginRight: -space.sm,
   },
-  status: {
-    marginTop: space.sm,
-    paddingHorizontal: space.lg,
+  dayLabel: {
+    flexShrink: 1,
   },
-  section: {
-    marginTop: space.xl,
-    marginBottom: space.xs,
+  album: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.lg,
+  },
+  albumText: {
+    flex: 1,
+    gap: space.sm,
+  },
+  share: {
+    alignSelf: 'flex-start',
+    marginTop: space.xs,
+  },
+  rule: {
+    marginTop: -space.sm,
   },
 });

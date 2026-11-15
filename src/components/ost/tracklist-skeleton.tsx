@@ -1,8 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius, space } from '@/theme';
-
-import { CUE_COVER_SIZE } from './cue-row';
+import { colors, radius, sizes, space } from '@/theme';
 
 const WIDTHS = ['78%', '62%', '70%', '54%'] as const;
 
@@ -10,7 +8,7 @@ const WIDTHS = ['78%', '62%', '70%', '54%'] as const;
 export function TracklistSkeleton({ rows = 4, testID }: { rows?: number; testID?: string }) {
   return (
     <View
-      accessibilityLabel="Loading cues"
+      accessibilityLabel="Loading tracks"
       accessibilityRole="progressbar"
       accessible
       style={styles.list}
@@ -39,10 +37,10 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   cover: {
-    width: CUE_COVER_SIZE,
-    height: CUE_COVER_SIZE,
-    borderRadius: radius.xs,
-    backgroundColor: colors.surface,
+    width: sizes.thumb,
+    height: sizes.thumb,
+    borderRadius: radius.thumb,
+    backgroundColor: colors.paperSunk,
   },
   text: {
     flex: 1,
@@ -51,11 +49,10 @@ const styles = StyleSheet.create({
   line: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.paperSunk,
   },
   titleLine: {
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
+    height: 14,
+    borderRadius: 7,
   },
 });

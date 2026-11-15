@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, PressableScale, type IconName } from '@/components/ui';
-import { colors, layout, radius, space } from '@/theme';
+import { colors, radius, sizes, space } from '@/theme';
 
 export type Option<T extends string> = {
   value: T;
@@ -13,7 +13,7 @@ type Props<T extends string> = {
   options: readonly Option<T>[];
   value: T | null;
   onChange: (value: T) => void;
-  /** Each chip gets the testID `${testIDPrefix}-${option.value}`. */
+  /** Each option gets the testID `${testIDPrefix}-${option.value}`. */
   testIDPrefix: string;
   /** Names the group for screen readers. */
   accessibilityLabel: string;
@@ -21,9 +21,10 @@ type Props<T extends string> = {
 };
 
 /**
- * A single-select group of chips that wraps onto further rows, so every choice
- * is on screen at once and each one has its own testID. It looks like the
- * kit's `ChoiceChips`, which scrolls sideways and has one testID for the row.
+ * A single-select group of options that wraps onto further rows, so every
+ * choice is on screen at once and each one has its own testID (the kit's
+ * `ChoiceChips` scrolls sideways and has one testID for the row). Options are
+ * paperSunk controls; the chosen one is filled with ink.
  */
 export function OptionChips<T extends string>({
   options,
@@ -49,19 +50,12 @@ export function OptionChips<T extends string>({
               if (!selected) onChange(option.value);
             }}
             pressedStyle={selected ? styles.selectedPressed : styles.pressed}
-            style={[styles.chip, selected ? styles.selected : null]}
+            style={[styles.option, selected ? styles.selected : null]}
             testID={`${testIDPrefix}-${option.value}`}>
             {option.icon ? (
-              <Icon
-                color={selected ? colors.accent : colors.textSecondary}
-                name={option.icon}
-                size={16}
-              />
+              <Icon color={selected ? colors.paper : colors.inkMuted} name={option.icon} size={16} />
             ) : null}
-            <AppText
-              numberOfLines={1}
-              style={{ color: selected ? colors.text : colors.textSecondary }}
-              variant="label">
+            <AppText numberOfLines={1} tone={selected ? 'onInk' : 'primary'} variant="button">
               {option.label}
             </AppText>
           </PressableScale>
@@ -77,25 +71,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.sm,
   },
-  chip: {
+  option: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    height: 38,
+    height: sizes.primary,
     paddingHorizontal: space.md + 2,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    backgroundColor: colors.paperSunk,
   },
   pressed: {
-    backgroundColor: colors.surfacePressed,
+    backgroundColor: colors.paperPressed,
   },
   selected: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accentBorder,
+    backgroundColor: colors.ink,
   },
   selectedPressed: {
-    backgroundColor: 'rgba(245, 168, 60, 0.24)',
+    backgroundColor: colors.inkSoft,
   },
 });

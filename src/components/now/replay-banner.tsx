@@ -14,16 +14,16 @@ export function ReplayBanner({ replay }: { replay: ReplayApi }) {
   const { item, status } = replay;
 
   return (
-    <Surface padding="md" style={styles.banner} testID="now-replay">
-      <CoverArt shadow={false} size={44} uri={item?.coverUrl ?? null} />
+    <Surface padding="md" style={styles.banner} testID="now-replay" variant="accent">
+      <CoverArt size={48} uri={item?.coverUrl ?? null} />
       <View style={styles.text}>
-        <View style={styles.overline}>
+        <View style={styles.heading}>
           <LiveEqualizer size={11} />
-          <AppText numberOfLines={1} tone="accent" variant="overline">
+          <AppText numberOfLines={1} tone="muted" variant="meta">
             Soundtrack replay playing
           </AppText>
         </View>
-        <AppText numberOfLines={1} variant="label">
+        <AppText numberOfLines={1} variant="button">
           {item ? `${item.title} · ${item.artist}` : status === 'loading' ? 'Loading the replay…' : 'Replay'}
         </AppText>
       </View>
@@ -33,6 +33,7 @@ export function ReplayBanner({ replay }: { replay: ReplayApi }) {
         onPress={replay.stop}
         size="sm"
         testID="now-replay-stop"
+        variant="ghost"
       />
     </Surface>
   );
@@ -46,9 +47,9 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    gap: space.xs,
+    gap: space.xxs,
   },
-  overline: {
+  heading: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,

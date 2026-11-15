@@ -1,12 +1,12 @@
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText, BrandMark, Notice, PrimaryButton } from '@/components/ui';
+import { AppText, Notice, PrimaryButton } from '@/components/ui';
 import type { ReplayApi, SensingApi, SessionApi } from '@/lib/score';
-import { colors, layout, space } from '@/theme';
+import { space } from '@/theme';
 
-import { ContextChips } from './context-chips';
-import { capitalise } from './format';
-import { ModeBadge } from './mode-badge';
+import { CoverStage } from './cover-stage';
+import { metaLine, sceneSentence } from './format';
+import { NowHeader } from './now-header';
 import { ReplayBanner } from './replay-banner';
 
 type Props = {
@@ -15,7 +15,7 @@ type Props = {
   replay: ReplayApi;
 };
 
-/** One line about where the context will come from, or null when there is nothing to add. */
+/** One line about where the scene will come from, or null when there is nothing to add. */
 function sourceLine(sensing: SensingApi): string | null {
   const { mode, permissions } = sensing;
   // The engine calls the hand-set mode 'simulated'; to the user it is their own scene.
@@ -31,57 +31,44 @@ function sourceLine(sensing: SensingApi): string | null {
 }
 
 /**
- * The Now screen before a session: the brand, the invitation, a live preview
- * of the scene a first cue would be picked for, and the one start control.
+ * The Now screen before a session: the wordmark, a quiet paper cover waiting
+ * for its first song, the scene as it is right now, and the one control that
+ * starts the score.
  */
 export function NowIdleView({ session, sensing, replay }: Props) {
   const { height: windowHeight } = useWindowDimensions();
   const compact = windowHeight < 720;
   const replaying = replay.status !== 'idle';
   const note = sourceLine(sensing);
-  const denied =
-    sensing.mode === 'live' &&
-    (sensing.permissions.motion === 'denied' || sensing.permissions.location === 'denied');
+  const { scene } = sensing;
 
   return (
-    <View style={styles.root}>
-      <View style={styles.slate}>
-        <ModeBadge active={false} mode={sensing.mode} />
-        <AppText numberOfLines={1} variant="overline">
-          An original soundtrack
+    <View style={[styles.root, compact ? styles.rootCompact : null]}>
+      <NowHeader mode={sensing.mode} />
+
+      <CoverStage
+        bpm={scene.bpm ?? 90}
+        coverUrl={replay.item?.coverUrl ?? null}
+        energy={scene.energy}
+        trackId={null}
+      />
+
+      <View style={styles.text}>
+        <AppText numberOfLines={1} testID="now-scene-label" tone="muted" variant="sceneLine">
+          {sceneSentence(scene)}
         </AppText>
-      </View>
-
-      <View style={[styles.stage, compact ? styles.stageCompact : null]}>
-        <View style={styles.brand}>
-          <BrandMark size={compact ? 44 : 56} />
-          <AppText accessibilityRole="header" align="center" variant="displayLarge">
-            Score
-          </AppText>
-          <AppText align="center" tone="secondary" variant="serifItalic">
-            Press play. Walk. We’ll score it.
-          </AppText>
-        </View>
-
-        <View style={styles.rule} />
-
-        <View style={styles.preview}>
-          <AppText align="center" variant="overline">
-            Right now
-          </AppText>
-          <View style={styles.previewLabel}>
-            <AppText
-              adjustsFontSizeToFit
-              align="center"
-              minimumFontScale={0.8}
-              numberOfLines={2}
-              testID="now-scene-label"
-              variant="displaySmall">
-              {capitalise(sensing.scene.label)}
-            </AppText>
-          </View>
-          <ContextChips context={sensing.context} />
-        </View>
+        <AppText
+          accessibilityRole="header"
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          numberOfLines={2}
+          style={compact ? styles.titleCompact : null}
+          variant="songTitle">
+          Press play. Walk.{'\n'}We’ll score it.
+        </AppText>
+        <AppText numberOfLines={1} testID="now-context" tone="muted" variant="meta">
+          {metaLine(sensing.context)}
+        </AppText>
       </View>
 
       <View style={styles.footer}>
@@ -102,22 +89,14 @@ export function NowIdleView({ session, sensing, replay }: Props) {
           icon="play"
           label={replaying ? 'Start live scoring' : 'Start scoring'}
           onPress={session.start}
+          size="lg"
           testID="now-start"
         />
         <View style={styles.note}>
-          {note ? (
-            <AppText
-              align="center"
-              numberOfLines={2}
-              testID="now-source-note"
-              tone={denied ? 'accent' : 'tertiary'}
-              variant="caption">
+          {note || replaying ? (
+            <AppText align="center" numberOfLines={2} testID="now-source-note" tone="muted" variant="meta">
               {replaying ? 'Starting stops the replay. ' : ''}
               {note}
-            </AppText>
-          ) : replaying ? (
-            <AppText align="center" tone="tertiary" variant="caption">
-              Starting stops the replay.
             </AppText>
           ) : null}
         </View>
@@ -131,46 +110,21 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: space.lg,
   },
-  slate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-    height: 26,
-  },
-  stage: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space.xl,
-  },
-  stageCompact: {
-    gap: space.lg,
-  },
-  brand: {
-    alignItems: 'center',
-    gap: space.sm,
-  },
-  rule: {
-    width: 40,
-    height: layout.hairline,
-    backgroundColor: colors.hairlineStrong,
-  },
-  preview: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
+  rootCompact: {
     gap: space.md,
   },
-  previewLabel: {
-    height: 56,
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
+  text: {
+    gap: space.xs,
+  },
+  titleCompact: {
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.28,
   },
   footer: {
     gap: space.md,
   },
   note: {
-    minHeight: 36,
-    justifyContent: 'flex-start',
+    minHeight: 40,
   },
 });

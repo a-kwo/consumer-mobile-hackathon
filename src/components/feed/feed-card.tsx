@@ -1,6 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
-import { cueCount, formatRelativeTime, mosaicCovers, startOfLocalDay } from '@/components/ost/format';
+import {
+  formatRelativeTime,
+  mosaicCovers,
+  sentenceCase,
+  startOfLocalDay,
+  trackCount,
+} from '@/components/ost/format';
 import type { FeedItem } from '@/components/ost/queries';
 import {
   AppText,
@@ -10,7 +16,7 @@ import {
   Icon,
   PressableScale,
 } from '@/components/ui';
-import { colors, layout, radius, space } from '@/theme';
+import { space } from '@/theme';
 
 export type FeedCardProps = {
   item: FeedItem;
@@ -22,18 +28,22 @@ export type FeedCardProps = {
   testID: string;
 };
 
-/** "today · 8 cues" when the newest cue is from today, otherwise how long ago it was. */
+/** "Today · 8 tracks" when the newest track is from today, otherwise how long ago it was. */
 export function feedMeta(item: FeedItem, now: number): string {
-  const count = cueCount(item.entries.length);
-  if (startOfLocalDay(item.latestAt) === startOfLocalDay(now)) return `today · ${count}`;
-  return `${formatRelativeTime(item.latestAt, now)} · ${count}`;
+  const count = trackCount(item.entries.length);
+  if (startOfLocalDay(item.latestAt) === startOfLocalDay(now)) return `Today · ${count}`;
+  return `${sentenceCase(formatRelativeTime(item.latestAt, now))} · ${count}`;
 }
 
-/** One friend's soundtrack in the feed: who, when, the artwork, the mood and the first cues. */
+/**
+ * One friend's soundtrack in the feed: who, when, the cover, the mood and the
+ * first tracks. It is a passage on the page, not a card: entries are separated
+ * by hairlines in the list.
+ */
 export function FeedCard({ item, now, playing, onPress, testID }: FeedCardProps) {
   const { profile, entries } = item;
   const meta = feedMeta(item, now);
-  const firstCues = entries.slice(0, 3);
+  const firstTracks = entries.slice(0, 3);
 
   return (
     <PressableScale
@@ -44,35 +54,35 @@ export function FeedCard({ item, now, playing, onPress, testID }: FeedCardProps)
       containerStyle={styles.container}
       fill
       onPress={onPress}
-      pressedStyle={styles.pressed}
+      pressedOpacity={0.6}
       scaleTo={0.985}
-      style={[styles.card, playing ? styles.cardPlaying : null]}
+      style={styles.entry}
       testID={testID}>
       <View style={styles.who}>
-        <Avatar emoji={profile.avatarEmoji} ring={playing} size={40} />
+        <Avatar emoji={profile.avatarEmoji} size={40} />
         <View style={styles.whoText}>
-          <AppText numberOfLines={1} variant="title">
+          <AppText numberOfLines={1} tone="primary" variant="artist">
             {profile.displayName}
           </AppText>
-          <AppText numberOfLines={1} variant="caption">
+          <AppText numberOfLines={1} variant="meta">
             {meta}
           </AppText>
         </View>
-        {playing ? <EqualizerBars playing size={16} /> : null}
-        <Icon name="chevron-forward" size={16} tone="tertiary" />
+        {playing ? <EqualizerBars playing size={14} /> : null}
+        <Icon name="chevron-forward" size={16} tone="muted" />
       </View>
 
       <View style={styles.body}>
         <CoverMosaic size={96} uris={mosaicCovers(entries)} />
         <View style={styles.bodyText}>
           {item.summary ? (
-            <AppText numberOfLines={2} style={styles.summary} tone="primary" variant="serifItalic">
-              {item.summary}
+            <AppText numberOfLines={2} variant="sceneLine">
+              {sentenceCase(item.summary)}
             </AppText>
           ) : null}
-          <View style={styles.cues}>
-            {firstCues.map((entry) => (
-              <AppText key={entry.playId} numberOfLines={1} variant="caption">
+          <View>
+            {firstTracks.map((entry) => (
+              <AppText key={entry.playId} numberOfLines={1} tone="soft" variant="meta">
                 {entry.title}
               </AppText>
             ))}
@@ -87,19 +97,9 @@ const styles = StyleSheet.create({
   container: {
     alignSelf: 'stretch',
   },
-  card: {
+  entry: {
     gap: space.lg,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
-  },
-  cardPlaying: {
-    borderColor: colors.accentBorder,
-  },
-  pressed: {
-    backgroundColor: colors.surfaceRaised,
+    paddingVertical: space.xl,
   },
   who: {
     flexDirection: 'row',
@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
   },
   whoText: {
     flex: 1,
-    gap: 1,
   },
   body: {
     flexDirection: 'row',
@@ -118,12 +117,5 @@ const styles = StyleSheet.create({
   bodyText: {
     flex: 1,
     gap: space.sm,
-  },
-  summary: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  cues: {
-    gap: space.xxs,
   },
 });

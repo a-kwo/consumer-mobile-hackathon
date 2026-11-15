@@ -1,11 +1,10 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, type ComponentRef, type RefObject } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
-import { cueCount, cueNumber, formatLongDate } from '@/components/ost/format';
+import { cueNumber, formatLongDate, sentenceCase, trackCount } from '@/components/ost/format';
 import { AppText, BrandMark, coverUrlAtSize } from '@/components/ui';
 import type { OstEntry } from '@/lib/score';
-import { colors, fonts, ink, paper } from '@/theme';
+import { colors, fonts } from '@/theme';
 
 /** Width over height: 9 by 16, which fills a story and crops well to a post. */
 export const SHARE_CARD_ASPECT = 9 / 16;
@@ -31,8 +30,9 @@ export type ShareCardProps = {
 };
 
 /**
- * The day as a movie-soundtrack poster: artwork, the date as the title, who it
- * was scored for, the first cues as a tracklist, the moods and the Score mark.
+ * The day as the liner notes of a record: warm paper, ink type, the cover,
+ * the date as the title, who it was scored for, the first tracks, the moods
+ * and the Score mark.
  *
  * Images here are React Native's own `Image`, not expo-image: a view capture
  * draws the card into a software canvas, which cannot draw the hardware
@@ -54,191 +54,137 @@ export function ShareCard({
   const titles = entries.slice(0, MAX_TITLES);
   const more = entries.length - titles.length;
 
-  // The backdrop reuses the first cover, so the images to wait for are the tiles plus one.
-  const imageCount = art.length > 0 ? art.length + 1 : 0;
+  const imageCount = art.length;
   const settled = useRef(0);
   const onImageEnd = () => {
     settled.current += 1;
     if (settled.current === imageCount) onImagesSettled?.();
   };
 
-  const artSize = 168 * u;
+  const artSize = 188 * u;
   const tileSource = (uri: string) => ({ uri: coverUrlAtSize(uri, 120) ?? uri });
-  const text = (size: number, lineHeight: number) => ({ fontSize: size * u, lineHeight: lineHeight * u });
+  const text = (size: number, lineHeight: number) => ({
+    fontSize: size * u,
+    lineHeight: lineHeight * u,
+  });
+  const tile = (uri: string) => (
+    <Image
+      accessible={false}
+      onError={onImageEnd}
+      onLoad={onImageEnd}
+      source={tileSource(uri)}
+      style={styles.tile}
+    />
+  );
 
   return (
     <View
       collapsable={false}
       ref={cardRef}
-      style={[styles.card, { width, height }]}
+      style={[styles.card, { width, height, padding: 28 * u }]}
       testID="share-card">
-      {art.length > 0 ? (
-        <Image
-          accessible={false}
-          blurRadius={30}
-          onError={onImageEnd}
-          onLoad={onImageEnd}
-          resizeMode="cover"
-          source={{ uri: coverUrlAtSize(art[0], 40) ?? art[0] }}
-          style={[StyleSheet.absoluteFill, styles.wash]}
-        />
-      ) : null}
-      <LinearGradient
-        colors={[ink(0.5), ink(0.2), ink(0.78), colors.bg]}
-        locations={[0, 0.28, 0.62, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(245, 168, 60, 0.16)', 'rgba(245, 168, 60, 0)']}
-        end={{ x: 0.7, y: 0.5 }}
-        start={{ x: 0, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={[styles.content, { padding: 28 * u }]}>
-        <AppText
-          align="center"
-          allowFontScaling={false}
-          style={[text(10, 13), { letterSpacing: 3.2 * u }]}
-          tone="secondary"
-          variant="overline">
+      <View style={styles.spread}>
+        <View style={[styles.brand, { gap: 7 * u }]}>
+          <BrandMark size={20 * u} />
+          <AppText
+            allowFontScaling={false}
+            style={[styles.titleFace, text(18, 24), { letterSpacing: -0.18 * u }]}>
+            Score
+          </AppText>
+        </View>
+        <AppText allowFontScaling={false} style={[styles.sans, text(11, 16)]} tone="muted">
           Original soundtrack
         </AppText>
+      </View>
 
-        <View
-          style={[
-            styles.art,
-            { width: artSize, height: artSize, borderRadius: 8 * u, marginTop: 18 * u },
-          ]}>
-          {art.length === 0 ? (
-            <View style={styles.artEmpty}>
-              <BrandMark size={64 * u} />
+      <View
+        style={[
+          styles.art,
+          { width: artSize, height: artSize, borderRadius: 6 * u, marginTop: 22 * u },
+        ]}>
+        {art.length === 0 ? (
+          <View style={styles.artEmpty}>
+            <BrandMark color={colors.inkFaint} size={64 * u} />
+          </View>
+        ) : (
+          <View style={[styles.artGrid, { gap: u }]}>
+            <View style={[styles.artColumn, { gap: u }]}>
+              {tile(art[0])}
+              {art.length === 4 ? tile(art[2]) : null}
             </View>
-          ) : (
-            <View style={[styles.artGrid, { gap: u }]}>
+            {art.length >= 2 ? (
               <View style={[styles.artColumn, { gap: u }]}>
-                <Image
-                  accessible={false}
-                  onError={onImageEnd}
-                  onLoad={onImageEnd}
-                  source={tileSource(art[0])}
-                  style={styles.tile}
-                />
-                {art.length === 4 ? (
-                  <Image
-                    accessible={false}
-                    onError={onImageEnd}
-                    onLoad={onImageEnd}
-                    source={tileSource(art[2])}
-                    style={styles.tile}
-                  />
-                ) : null}
+                {tile(art[1])}
+                {art.length >= 3 ? tile(art[art.length - 1]) : null}
               </View>
-              {art.length >= 2 ? (
-                <View style={[styles.artColumn, { gap: u }]}>
-                  <Image
-                    accessible={false}
-                    onError={onImageEnd}
-                    onLoad={onImageEnd}
-                    source={tileSource(art[1])}
-                    style={styles.tile}
-                  />
-                  {art.length >= 3 ? (
-                    <Image
-                      accessible={false}
-                      onError={onImageEnd}
-                      onLoad={onImageEnd}
-                      source={tileSource(art[art.length - 1])}
-                      style={styles.tile}
-                    />
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          )}
-        </View>
+            ) : null}
+          </View>
+        )}
+      </View>
 
-        <AppText
-          adjustsFontSizeToFit
-          align="center"
-          allowFontScaling={false}
-          minimumFontScale={0.6}
-          numberOfLines={1}
-          style={[styles.serif, text(34, 40), { marginTop: 18 * u }]}>
-          {formatLongDate(dayStart)}
-        </AppText>
-        <AppText
-          align="center"
-          allowFontScaling={false}
-          numberOfLines={1}
-          style={[styles.serifItalic, text(17, 22), { marginTop: 2 * u }]}
-          tone="secondary">
-          {displayName ? `Scored for ${displayName}` : 'A day, scored'}
-        </AppText>
+      <AppText
+        adjustsFontSizeToFit
+        allowFontScaling={false}
+        minimumFontScale={0.6}
+        numberOfLines={1}
+        style={[
+          styles.titleFace,
+          text(30, 36),
+          { letterSpacing: -0.3 * u, marginTop: 20 * u },
+        ]}>
+        {formatLongDate(dayStart)}
+      </AppText>
+      <AppText
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={[styles.italic, text(15, 20), { marginTop: 2 * u }]}
+        tone="muted">
+        {displayName ? `Scored for ${displayName}` : 'A day, scored'}
+      </AppText>
 
-        <View style={[styles.rule, { marginTop: 14 * u, marginBottom: 10 * u }]} />
+      <View style={[styles.rule, { marginTop: 14 * u, marginBottom: 12 * u }]} />
 
-        <View style={{ gap: 5 * u }}>
-          {titles.map((entry, index) => (
-            <View key={entry.playId} style={[styles.track, { gap: 10 * u }]}>
-              <AppText
-                allowFontScaling={false}
-                style={[text(9.5, 18), styles.trackNumber, { width: 16 * u }]}
-                tone="tertiary"
-                variant="numeric">
-                {cueNumber(index)}
-              </AppText>
-              <AppText
-                allowFontScaling={false}
-                numberOfLines={1}
-                style={[styles.serif, styles.trackTitle, text(15, 18)]}>
-                {entry.title}
-              </AppText>
-            </View>
-          ))}
-          {more > 0 ? (
+      <View style={{ gap: 4 * u }}>
+        {titles.map((entry, index) => (
+          <View key={entry.playId} style={[styles.track, { gap: 10 * u }]}>
             <AppText
               allowFontScaling={false}
-              style={[text(10.5, 16), { marginLeft: 26 * u }]}
-              tone="tertiary"
-              variant="caption">
-              and {cueCount(more)} more
+              style={[styles.sans, styles.tabular, text(10, 19), { width: 16 * u }]}
+              tone="muted">
+              {cueNumber(index)}
             </AppText>
-          ) : null}
-        </View>
-
-        <View style={styles.spacer} />
-
-        {topMoods.length > 0 ? (
-          <AppText
-            align="center"
-            allowFontScaling={false}
-            numberOfLines={1}
-            style={[text(9.5, 13), { letterSpacing: 2.4 * u, marginBottom: 14 * u }]}
-            tone="accent"
-            variant="overline">
-            {topMoods.join('  ·  ')}
-          </AppText>
-        ) : null}
-
-        <View style={styles.footer}>
-          <View style={[styles.brand, { gap: 7 * u }]}>
-            <BrandMark size={20 * u} />
             <AppText
               allowFontScaling={false}
-              style={[text(10, 13), { letterSpacing: 3 * u, color: colors.text }]}
-              variant="overline">
-              Score
+              numberOfLines={1}
+              style={[styles.serif, styles.trackTitle, text(14.5, 19)]}>
+              {entry.title}
             </AppText>
           </View>
+        ))}
+        {more > 0 ? (
           <AppText
             allowFontScaling={false}
-            style={[text(9.5, 13), { letterSpacing: 1.6 * u }]}
-            tone="tertiary"
-            variant="overline">
-            {cueCount(entries.length)}
+            style={[styles.sans, text(11, 17), { marginLeft: 26 * u }]}
+            tone="muted">
+            and {trackCount(more)} more
           </AppText>
-        </View>
+        ) : null}
+      </View>
+
+      <View style={styles.spacer} />
+
+      <View style={[styles.rule, { marginBottom: 10 * u }]} />
+      <View style={[styles.spread, { gap: 12 * u }]}>
+        <AppText
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={[styles.sans, styles.moods, text(11.5, 16)]}
+          tone="muted">
+          {topMoods.length > 0 ? sentenceCase(topMoods.join(', ')) : ''}
+        </AppText>
+        <AppText allowFontScaling={false} style={[styles.sans, text(11.5, 16)]} tone="muted">
+          {trackCount(entries.length)}
+        </AppText>
       </View>
     </View>
   );
@@ -247,26 +193,25 @@ export function ShareCard({
 const styles = StyleSheet.create({
   card: {
     overflow: 'hidden',
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.paper,
   },
-  wash: {
-    opacity: 0.75,
+  spread: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  content: {
-    flex: 1,
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   art: {
-    alignSelf: 'center',
     overflow: 'hidden',
-    backgroundColor: colors.bg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: paper(0.22),
+    backgroundColor: colors.paperRaised,
   },
   artEmpty: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.bgRaised,
   },
   artGrid: {
     flex: 1,
@@ -278,42 +223,39 @@ const styles = StyleSheet.create({
   tile: {
     flex: 1,
     width: '100%',
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.paperSunk,
+  },
+  titleFace: {
+    fontFamily: fonts.serifMedium,
   },
   serif: {
     fontFamily: fonts.serif,
-    letterSpacing: 0,
-    color: colors.text,
   },
-  serifItalic: {
+  italic: {
     fontFamily: fonts.serifItalic,
   },
+  sans: {
+    fontFamily: fonts.sans,
+  },
+  tabular: {
+    fontVariant: ['tabular-nums'],
+  },
   rule: {
-    alignSelf: 'center',
-    width: '26%',
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: paper(0.4),
+    alignSelf: 'stretch',
+    height: 1,
+    backgroundColor: colors.hairline,
   },
   track: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  trackNumber: {
-    letterSpacing: 0.4,
-  },
   trackTitle: {
+    flex: 1,
+  },
+  moods: {
     flex: 1,
   },
   spacer: {
     flex: 1,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
 });

@@ -3,13 +3,14 @@ import { FlatList, StyleSheet, View } from 'react-native';
 
 import { FeedCard } from '@/components/feed/feed-card';
 import { useFeed } from '@/components/ost/queries';
+import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
 import { TabBarProbe, useReplayBarListInset } from '@/components/replay';
 import {
   AppText,
   Avatar,
+  Divider,
   EmptyState,
-  Icon,
   PressableScale,
   Screen,
   useScreenInsets,
@@ -28,8 +29,8 @@ export default function FriendsScreen() {
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.headerRow}>
-        <AppText variant="overline">Friends</AppText>
+      <View style={styles.topBar}>
+        <AppText variant="wordmark">Score</AppText>
         <PressableScale
           accessibilityHint="Edit your name and emoji"
           accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}
@@ -37,29 +38,25 @@ export default function FriendsScreen() {
           pressedStyle={styles.profilePressed}
           style={styles.profile}
           testID="profile-edit">
-          <Avatar emoji={profile?.avatarEmoji ?? '🎬'} size={28} />
-          <AppText numberOfLines={1} style={styles.profileName} variant="label">
+          <Avatar emoji={profile?.avatarEmoji ?? '🎬'} size={28} style={styles.profileAvatar} />
+          <AppText numberOfLines={1} style={styles.profileName} variant="button">
             {profile?.displayName ?? 'You'}
           </AppText>
-          <Icon name="pencil" size={13} tone="secondary" />
         </PressableScale>
       </View>
-      <AppText accessibilityRole="header" variant="displayMedium">
+      <AppText accessibilityRole="header" variant="screenTitle">
         Other people’s days
       </AppText>
+      <Divider style={styles.rule} />
     </View>
   );
 
   const empty =
     feed === undefined ? (
-      <View accessibilityLabel="Loading friends" accessible style={styles.loading} testID="feed-loading">
-        <View style={styles.skeleton} />
-        <View style={styles.skeleton} />
-      </View>
+      <TracklistSkeleton rows={5} testID="feed-loading" />
     ) : (
       <EmptyState
         fill={false}
-        icon="people-outline"
         message="When friends score their day, their soundtracks show up here."
         testID="feed-empty"
         title="No soundtracks yet"
@@ -70,7 +67,7 @@ export default function FriendsScreen() {
     <TabBarProbe>
       <Screen edges="none" padded={false} testID="feed-screen">
         <FlatList
-          ItemSeparatorComponent={Gap}
+          ItemSeparatorComponent={Divider}
           ListEmptyComponent={empty}
           ListHeaderComponent={header}
           contentContainerStyle={{
@@ -104,16 +101,11 @@ export default function FriendsScreen() {
   );
 }
 
-function Gap() {
-  return <View style={styles.gap} />;
-}
-
 const styles = StyleSheet.create({
   header: {
-    gap: space.sm,
-    marginBottom: space.xl,
+    gap: space.lg,
   },
-  headerRow: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -125,31 +117,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.sm,
     maxWidth: 220,
-    height: 40,
-    paddingLeft: space.xs + 2,
-    paddingRight: space.md,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairlineStrong,
-    backgroundColor: colors.surface,
+    height: layout.minTouch,
+    paddingLeft: space.sm,
+    paddingRight: space.lg,
+    borderRadius: radius.control,
+    backgroundColor: colors.paperSunk,
   },
   profilePressed: {
-    backgroundColor: colors.surfacePressed,
+    backgroundColor: colors.paperPressed,
+  },
+  profileAvatar: {
+    backgroundColor: colors.paperRaised,
   },
   profileName: {
     flexShrink: 1,
   },
-  gap: {
-    height: space.md,
-  },
-  loading: {
-    gap: space.md,
-  },
-  skeleton: {
-    height: 188,
-    borderRadius: radius.lg,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
+  rule: {
+    marginTop: space.sm,
   },
 });

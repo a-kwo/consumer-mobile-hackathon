@@ -69,8 +69,8 @@ export default function ShareScreen() {
     }
   };
 
-  const hasCues = !!ost && ost.entries.length > 0;
-  const ready = hasCues && !!box && (covers.length === 0 || imagesSettled || waitedLongEnough);
+  const hasTracks = !!ost && ost.entries.length > 0;
+  const ready = hasTracks && !!box && (covers.length === 0 || imagesSettled || waitedLongEnough);
   const cardWidth = box ? Math.floor(Math.min(box.width, box.height * SHARE_CARD_ASPECT)) : 0;
 
   const share = async () => {
@@ -128,11 +128,12 @@ export default function ShareScreen() {
   return (
     <Screen
       contentStyle={[styles.content, { paddingTop: topPadding }]}
-      coverUrl={covers[0]}
       edges="bottom"
       testID="share-screen">
       <View style={styles.topBar}>
-        <AppText variant="overline">Share card</AppText>
+        <AppText accessibilityRole="header" variant="wordmark">
+          Share
+        </AppText>
         <IconButton
           accessibilityLabel="Close"
           icon="close"
@@ -142,10 +143,9 @@ export default function ShareScreen() {
         />
       </View>
 
-      {ost && !hasCues ? (
+      {ost && !hasTracks ? (
         <EmptyState
-          icon="image-outline"
-          message="A day needs at least one cue before it can become a poster."
+          message="A day needs at least one track before it can be shared."
           testID="share-empty"
           title="Nothing to share yet"
         />
@@ -165,8 +165,8 @@ export default function ShareScreen() {
               />
             </View>
           ) : (
-            <AppText tone="tertiary" variant="caption">
-              Setting the poster…
+            <AppText variant="meta">
+              Setting the page…
             </AppText>
           )}
         </View>
@@ -183,13 +183,11 @@ export default function ShareScreen() {
       ) : null}
 
       <PrimaryButton
-        disabled={!hasCues}
+        disabled={!hasTracks}
         fullWidth
-        icon="share-outline"
-        label={ready || !hasCues ? 'Share' : 'Preparing…'}
-        loading={busy || (hasCues && !ready)}
+        label={ready || !hasTracks ? 'Share' : 'Preparing…'}
+        loading={busy || (hasTracks && !ready)}
         onPress={share}
-        size="md"
         testID="share-do"
       />
     </Screen>
@@ -211,7 +209,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   frame: {
-    borderRadius: radius.md,
+    borderRadius: radius.cover,
     overflow: 'hidden',
     ...shadows.raised,
   },

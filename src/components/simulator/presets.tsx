@@ -1,8 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 
-import { PillButton, type IconName } from '@/components/ui';
+import { AppText, Icon, PressableScale, type IconName } from '@/components/ui';
 import type { SimValues } from '@/lib/score';
-import { space } from '@/theme';
+import { colors, radius, sizes, space } from '@/theme';
 
 export type Preset = { label: string; icon: IconName; values: SimValues };
 
@@ -63,17 +63,25 @@ export function PresetGrid({ current, onSelect }: Props) {
         const selected = current !== null && matches(current, preset.values);
         return (
           <View key={preset.label} style={styles.cell}>
-            <PillButton
+            <PressableScale
               accessibilityLabel={`Moment: ${preset.label}`}
-              grow
+              accessibilityState={{ selected }}
+              containerStyle={styles.grow}
+              fill
               haptic="select"
-              icon={preset.icon}
-              label={preset.label}
               onPress={() => onSelect(preset.values)}
-              size="sm"
-              testID={`sim-preset-${index + 1}`}
-              tone={selected ? 'accent' : 'neutral'}
-            />
+              pressedStyle={selected ? styles.selectedPressed : styles.pressed}
+              style={[styles.moment, selected ? styles.selected : null]}
+              testID={`sim-preset-${index + 1}`}>
+              <Icon color={selected ? colors.paper : colors.inkMuted} name={preset.icon} size={16} />
+              <AppText
+                numberOfLines={1}
+                style={styles.label}
+                tone={selected ? 'onInk' : 'primary'}
+                variant="button">
+                {preset.label}
+              </AppText>
+            </PressableScale>
           </View>
         );
       })}
@@ -92,5 +100,29 @@ const styles = StyleSheet.create({
     width: '50%',
     paddingHorizontal: space.xs,
     flexDirection: 'row',
+  },
+  grow: {
+    flex: 1,
+  },
+  moment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    height: sizes.control,
+    paddingHorizontal: space.md,
+    borderRadius: radius.control,
+    backgroundColor: colors.paperSunk,
+  },
+  label: {
+    flexShrink: 1,
+  },
+  pressed: {
+    backgroundColor: colors.paperPressed,
+  },
+  selected: {
+    backgroundColor: colors.ink,
+  },
+  selectedPressed: {
+    backgroundColor: colors.inkSoft,
   },
 });

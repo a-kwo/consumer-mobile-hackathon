@@ -13,7 +13,7 @@ import {
   haptics,
 } from '@/components/ui';
 import { useProfile } from '@/lib/score';
-import { colors, layout, radius, space, typography } from '@/theme';
+import { colors, fonts, radius, sizes, space } from '@/theme';
 
 /** The server trims names to this many characters. */
 const MAX_NAME = 24;
@@ -71,7 +71,9 @@ export default function ProfileScreen() {
       scroll
       testID="profile-screen">
       <View style={styles.topBar}>
-        <AppText variant="overline">Your credit</AppText>
+        <AppText accessibilityRole="header" variant="screenTitle">
+          Your credit
+        </AppText>
         <IconButton
           accessibilityLabel="Close"
           icon="close"
@@ -83,13 +85,13 @@ export default function ProfileScreen() {
 
       <View style={styles.preview}>
         <Avatar emoji={emoji} size={72} />
-        <AppText align="center" numberOfLines={2} tone="secondary" variant="serifItalic">
+        <AppText align="center" numberOfLines={2} variant="sceneLine">
           Scored for {trimmed || '…'}
         </AppText>
       </View>
 
       <View style={styles.field}>
-        <AppText nativeID="profile-name-label" variant="overline">
+        <AppText nativeID="profile-name-label" variant="meta">
           Display name
         </AppText>
         <TextInput
@@ -97,7 +99,6 @@ export default function ProfileScreen() {
           accessibilityLabelledBy="profile-name-label"
           autoCapitalize="words"
           autoCorrect={false}
-          keyboardAppearance="dark"
           maxLength={MAX_NAME}
           onChangeText={(value) => {
             setDraftName(value);
@@ -105,9 +106,9 @@ export default function ProfileScreen() {
           }}
           onSubmitEditing={save}
           placeholder="Quiet Otter"
-          placeholderTextColor={colors.textDisabled}
+          placeholderTextColor={colors.inkFaint}
           returnKeyType="done"
-          selectionColor={colors.accent}
+          selectionColor={colors.ink}
           style={styles.input}
           testID="profile-name"
           value={name}
@@ -115,7 +116,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.field}>
-        <AppText variant="overline">Emoji</AppText>
+        <AppText variant="meta">Emoji</AppText>
         <View accessibilityRole="radiogroup" style={styles.emojiGrid}>
           {choices.map((choice, index) => {
             const selected = choice === emoji;
@@ -149,11 +150,9 @@ export default function ProfileScreen() {
 
       <PrimaryButton
         fullWidth
-        icon="checkmark"
         label="Save"
         loading={saving}
         onPress={save}
-        size="md"
         testID="profile-save"
       />
     </Screen>
@@ -177,14 +176,13 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   input: {
-    ...typography.title,
-    height: 52,
+    fontFamily: fonts.sans,
+    fontSize: 16,
+    height: sizes.control,
     paddingHorizontal: space.lg,
-    borderRadius: radius.md,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairlineStrong,
-    backgroundColor: colors.surface,
-    color: colors.text,
+    borderRadius: radius.control,
+    backgroundColor: colors.paperSunk,
+    color: colors.ink,
   },
   emojiGrid: {
     flexDirection: 'row',
@@ -197,22 +195,21 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.transparent,
+    backgroundColor: colors.paperSunk,
   },
   emojiSelected: {
-    borderWidth: 1.5,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentDim,
+    borderColor: colors.ink,
+    backgroundColor: colors.paperRaised,
   },
   emojiPressed: {
-    backgroundColor: colors.surfacePressed,
+    backgroundColor: colors.paperPressed,
   },
   emojiGlyph: {
     fontSize: 24,
     lineHeight: 30,
     textAlign: 'center',
-    color: colors.text,
+    color: colors.ink,
   },
 });

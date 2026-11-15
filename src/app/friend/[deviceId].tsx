@@ -1,10 +1,10 @@
-import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
-import { cueNumber, mosaicCovers, toReplayItems } from '@/components/ost/format';
+import { mosaicCovers, sentenceCase, toReplayItems } from '@/components/ost/format';
 import { useFeed } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
@@ -12,18 +12,16 @@ import { ReplayBar, useReplayBarInset, useReplayBarListInset } from '@/component
 import {
   AppText,
   Avatar,
-  Chip,
   CoverMosaic,
   Divider,
   EmptyState,
   IconButton,
   PrimaryButton,
   Screen,
-  SectionHeader,
   useScreenInsets,
 } from '@/components/ui';
 import { useProfile, useReplay, type OstEntry } from '@/lib/score';
-import { colors, ink, layout, space } from '@/theme';
+import { colors, layout, paperAlpha, sizes, space } from '@/theme';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -51,6 +49,8 @@ export default function FriendScreen() {
       accessibilityLabel="Back to friends"
       icon="chevron-back"
       onPress={goBack}
+      size="sm"
+      style={styles.back}
       testID="friend-back"
     />
   );
@@ -64,8 +64,7 @@ export default function FriendScreen() {
         ) : (
           <EmptyState
             actionLabel="Back to friends"
-            icon="film-outline"
-            message="Their cues are older than the feed keeps. Check back when they score another day."
+            message="Their tracks are older than the feed keeps. Check back when they score another day."
             onAction={goBack}
             testID="friend-empty"
             title="This soundtrack has faded"
@@ -79,8 +78,9 @@ export default function FriendScreen() {
   const covers = mosaicCovers(entries);
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
+
   // The replay plays a snapshot of the list taken when it started, and the live
-  // list can shift under it (the oldest cue drops off), so the playing row is
+  // list can shift under it (the oldest track drops off), so the playing row is
   // matched on the item itself, never on its index.
   const isReplaying = (entry: OstEntry) =>
     playingHere &&
@@ -97,71 +97,54 @@ export default function FriendScreen() {
   };
 
   const header = (
-    <View>
+    <View style={styles.header}>
       <View style={styles.topBar}>
         {backButton}
-        <AppText variant="overline">Original soundtrack</AppText>
-        <View style={styles.topBarBalance} />
-      </View>
-
-      <View style={styles.hero}>
-        <CoverMosaic
-          accessibilityLabel={`Cover of ${profile.displayName}'s soundtrack`}
-          shadow
-          size={112}
-          uris={covers}
-        />
-        <View style={styles.heroText}>
-          <Avatar emoji={profile.avatarEmoji} ring={playingHere} size={36} />
-          <AppText
-            accessibilityRole="header"
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            numberOfLines={2}
-            variant="displayMedium">
-            {profile.displayName}
-          </AppText>
-          <AppText numberOfLines={1} variant="caption">
+        <View style={styles.who}>
+          <Avatar emoji={profile.avatarEmoji} size={28} />
+          <AppText numberOfLines={1} variant="meta">
             {feedMeta(item, now)}
           </AppText>
         </View>
       </View>
 
-      {item.summary ? (
-        <AppText style={styles.summary} tone="secondary" variant="serifItalic">
-          {item.summary}
-        </AppText>
-      ) : null}
-
-      {item.topMoods.length > 0 ? (
-        <View style={styles.moods}>
-          {item.topMoods.map((mood) => (
-            <Chip key={mood} label={mood} size="sm" />
-          ))}
+      <View style={styles.album}>
+        <CoverMosaic
+          accessibilityLabel={`Cover of ${profile.displayName}'s soundtrack`}
+          size={sizes.soundtrackCover}
+          uris={covers}
+        />
+        <View style={styles.albumText}>
+          <AppText accessibilityRole="header" numberOfLines={3} variant="screenTitle">
+            {profile.displayName}’s soundtrack
+          </AppText>
+          {item.summary ? (
+            <AppText variant="sceneLine">{sentenceCase(item.summary)}</AppText>
+          ) : null}
         </View>
-      ) : null}
+      </View>
 
       <PrimaryButton
-        accessibilityLabel={playingHere ? 'Stop playing' : `Play through ${profile.displayName}'s soundtrack`}
+        accessibilityLabel={
+          playingHere ? 'Stop playing' : `Play through ${profile.displayName}'s soundtrack`
+        }
         fullWidth
         icon={playingHere ? 'stop' : 'play'}
         label={playingHere ? 'Stop' : 'Play through'}
         onPress={() => (playingHere ? replay.stop() : play(0))}
-        size="md"
-        style={styles.playThrough}
         testID="friend-play-through"
         variant={playingHere ? 'surface' : 'accent'}
       />
 
-      <SectionHeader detail={cueNumber(entries.length - 1)} style={styles.section} title="Cues" />
+      <Divider style={styles.rule} />
     </View>
   );
 
   return (
     <View style={styles.root}>
-      <Screen coverUrl={covers[0]} edges="none" padded={false} testID="friend-screen">
+      <Screen edges="none" padded={false} testID="friend-screen">
         <FlatList
-          ItemSeparatorComponent={CueDivider}
+          ItemSeparatorComponent={RowDivider}
           ListHeaderComponent={header}
           contentContainerStyle={{
             paddingTop: insets.top + space.sm,
@@ -186,9 +169,9 @@ export default function FriendScreen() {
         />
       </Screen>
       {barSpace > 0 ? (
-        // No tab bar here, so rows would show through under the bar: fade them into the base.
+        // No tab bar here, so rows would show through under the bar: fade them into the paper.
         <LinearGradient
-          colors={[ink(0), ink(0.94), colors.bg]}
+          colors={[paperAlpha(0), paperAlpha(0.94), colors.paper]}
           locations={[0, 0.3, 1]}
           style={[styles.scrim, { height: insets.bottom + barSpace + space.xxl }]}
         />
@@ -200,7 +183,7 @@ export default function FriendScreen() {
   );
 }
 
-function CueDivider() {
+function RowDivider() {
   return <Divider inset={CUE_TEXT_INSET} />;
 }
 
@@ -211,41 +194,36 @@ const styles = StyleSheet.create({
   missing: {
     gap: space.lg,
   },
+  header: {
+    gap: space.xl,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: layout.minTouch,
   },
-  topBarBalance: {
-    width: layout.minTouch,
+  back: {
+    // Line the circle's glyph up with the page margin.
+    marginLeft: -space.xs,
   },
-  hero: {
+  who: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.lg,
-    marginTop: space.lg,
-  },
-  heroText: {
-    flex: 1,
-    alignItems: 'flex-start',
-    gap: space.xs,
-  },
-  summary: {
-    marginTop: space.lg,
-  },
-  moods: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: space.sm,
-    marginTop: space.md,
+    flexShrink: 1,
   },
-  playThrough: {
-    marginTop: space.xl,
+  album: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.lg,
   },
-  section: {
-    marginTop: space.xl,
-    marginBottom: space.xs,
+  albumText: {
+    flex: 1,
+    gap: space.sm,
+  },
+  rule: {
+    marginTop: -space.sm,
   },
   scrim: {
     position: 'absolute',

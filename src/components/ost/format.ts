@@ -1,3 +1,4 @@
+import { rememberCoverColor } from '@/components/replay/cover-colors';
 import type { OstEntry, ReplayItem } from '@/lib/score';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -71,18 +72,26 @@ export function formatRelativeTime(ms: number, now: number): string {
   return days <= 1 ? 'yesterday' : `${days} days ago`;
 }
 
-/** "1 cue", "9 cues". */
-export function cueCount(count: number): string {
-  return `${count} ${count === 1 ? 'cue' : 'cues'}`;
+/** "1 track", "9 tracks". */
+export function trackCount(count: number): string {
+  return `${count} ${count === 1 ? 'track' : 'tracks'}`;
 }
 
-/** "07": the cue number as it appears on a tracklist. */
+/** "mostly joyful" becomes "Mostly joyful": sentence case for a line that starts with it. */
+export function sentenceCase(text: string): string {
+  return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
+/** "07": a track number, as printed on the share card. */
 export function cueNumber(index: number): string {
   return String(index + 1).padStart(2, '0');
 }
 
 /** Soundtrack entries as a replay list. Songs without a preview are skipped by the engine. */
 export function toReplayItems(entries: readonly OstEntry[]): ReplayItem[] {
+  // The engine's replay item has no colour field, so the replay bar looks the
+  // cover colour up by song when it tints its progress line.
+  entries.forEach((entry) => rememberCoverColor(entry.deezerId, entry.coverColor));
   return entries.map((entry) => ({
     deezerId: entry.deezerId,
     title: entry.songTitle,

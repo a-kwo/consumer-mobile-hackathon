@@ -1,10 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, CoverArt, IconButton, PrimaryButton, ProgressBar } from '@/components/ui';
-import { capitalise } from '@/components/now/format';
+import { sceneSentence } from '@/components/now/format';
 import { LiveEqualizer } from '@/components/now/playback-readout';
 import { usePlaybackProgress, type Scene, type SessionApi } from '@/lib/score';
-import { colors, ink, layout, motion, space } from '@/theme';
+import { albumInk, INK_MUTED } from '@/lib/album-ink';
+import { colors, layout, motion, space } from '@/theme';
 
 import { TUNING } from '../../../convex/tuning';
 
@@ -17,13 +18,12 @@ type Props = {
 };
 
 /** The thin line along the top edge of the dock. Re-renders with the playback clock. */
-function DockProgress() {
+function DockProgress({ coverColor }: { coverColor?: string | null }) {
   const { positionMs, durationMs } = usePlaybackProgress();
   return (
     <ProgressBar
       accessibilityLabel="Cue progress"
-      height={2}
-      tone="accent"
+      tint={albumInk(coverColor, INK_MUTED)}
       value={durationMs > 0 ? positionMs / durationMs : 0}
     />
   );
@@ -71,7 +71,7 @@ export function TransportDock({ session, previewScene, bottomInset }: Props) {
 
   return (
     <View style={[styles.dock, { paddingBottom: bottomInset + space.md }]} testID="sim-dock">
-      {active ? <DockProgress /> : <View style={styles.edge} />}
+      {active ? <DockProgress coverColor={track?.coverColor} /> : <View style={styles.edge} />}
       {active ? (
         <View style={styles.active}>
           <View style={styles.status}>
@@ -80,24 +80,23 @@ export function TransportDock({ session, previewScene, bottomInset }: Props) {
               numberOfLines={1}
               style={styles.shrink}
               testID="sim-now-status"
-              tone={status.changing ? 'accent' : 'tertiary'}
-              variant="overline">
+              tone={status.changing ? 'primary' : 'muted'}
+              variant="meta">
               {status.text}
             </AppText>
           </View>
           <View style={styles.row}>
             <CoverArt
-              shadow={false}
               size={48}
               transitionMs={motion.duration.slow}
               uri={track?.coverUrl ?? null}
             />
             <View style={styles.text}>
-              <AppText numberOfLines={1} testID="sim-now-title" variant="label">
+              <AppText numberOfLines={1} testID="sim-now-title" variant="button">
                 {track ? track.title : 'Finding your first cue…'}
               </AppText>
-              <AppText numberOfLines={1} testID="sim-now-artist" variant="caption">
-                {track ? track.artist : capitalise(previewScene.label)}
+              <AppText numberOfLines={1} testID="sim-now-artist" tone="muted" variant="meta">
+                {track ? track.artist : sceneSentence(previewScene)}
               </AppText>
             </View>
             <IconButton
@@ -113,18 +112,17 @@ export function TransportDock({ session, previewScene, bottomInset }: Props) {
               onPress={session.stop}
               size="md"
               testID="sim-stop"
-              variant="surface"
             />
           </View>
         </View>
       ) : (
         <View style={[styles.row, styles.idle]}>
           <View style={styles.text}>
-            <AppText numberOfLines={1} variant="overline">
+            <AppText numberOfLines={1} variant="button">
               Ready to score
             </AppText>
-            <AppText numberOfLines={2} tone="secondary" variant="caption">
-              {capitalise(previewScene.label)}
+            <AppText numberOfLines={2} tone="muted" variant="meta">
+              {sceneSentence(previewScene)}
             </AppText>
           </View>
           <PrimaryButton
@@ -143,11 +141,11 @@ export function TransportDock({ session, previewScene, bottomInset }: Props) {
 
 const styles = StyleSheet.create({
   dock: {
-    backgroundColor: ink(0.9),
+    backgroundColor: colors.paper,
   },
   edge: {
     height: layout.hairline,
-    backgroundColor: colors.hairlineStrong,
+    backgroundColor: colors.hairline,
   },
   active: {
     gap: space.sm,

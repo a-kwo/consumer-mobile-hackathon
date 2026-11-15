@@ -32,6 +32,7 @@ import {
   type SimValues,
   type Weather,
 } from '@/lib/score';
+import { albumInk, INK_MUTED } from '@/lib/album-ink';
 import { layout, space } from '@/theme';
 
 import { SETTINGS, WEATHERS } from '../../../convex/lib/validators';
@@ -64,6 +65,8 @@ export default function SceneScreen() {
 
   const { mode, liveAvailable, sim, live, setSim, setMode } = sensing;
   const isLive = mode === 'live';
+  // The one colour on the page: the playing song's album ink, or plain ink when idle.
+  const tint = session.track ? albumInk(session.track.coverColor, INK_MUTED) : undefined;
   const cadence = isLive ? Math.min(MAX_CADENCE, live.cadenceSpm) : sim.cadenceSpm;
   const hour = isLive ? live.localHour : sim.localHour;
 
@@ -74,7 +77,7 @@ export default function SceneScreen() {
   };
 
   return (
-    <Screen coverUrl={session.track?.coverUrl ?? null} edges="none" padded={false} testID="simulator-screen">
+    <Screen edges="none" padded={false} testID="simulator-screen">
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]}
         contentInsetAdjustmentBehavior="never"
@@ -82,13 +85,10 @@ export default function SceneScreen() {
         style={styles.scroll}
         testID="sim-scroll">
         <View style={styles.header}>
-          <View style={styles.headerText}>
-            <AppText variant="overline">Scene</AppText>
-            <AppText accessibilityRole="header" variant="displayMedium">
-              Set the scene
-            </AppText>
-          </View>
-          <ModeBadge active={session.status !== 'idle'} mode={mode} />
+          <AppText accessibilityRole="header" style={styles.headerText} variant="screenTitle">
+            Set the scene
+          </AppText>
+          <ModeBadge mode={mode} />
         </View>
 
         <SegmentedToggle<SensingMode>
@@ -103,7 +103,7 @@ export default function SceneScreen() {
           value={mode}
         />
         {!liveAvailable ? (
-          <AppText align="center" style={styles.hint} testID="sim-live-unavailable" tone="tertiary" variant="caption">
+          <AppText align="center" style={styles.hint} testID="sim-live-unavailable" tone="muted" variant="meta">
             {isLive
               ? 'Without motion sensing, your pace follows GPS speed.'
               : 'Automatic needs a phone with motion sensing.'}
@@ -124,6 +124,7 @@ export default function SceneScreen() {
           mode={mode}
           nudgePicksLeft={session.nudgePicksLeft}
           scene={sensing.scene}
+          tint={tint}
         />
 
         {isLive ? <LiveReadingsCard live={live} permissions={sensing.permissions} /> : null}
@@ -135,27 +136,26 @@ export default function SceneScreen() {
 
         <View style={styles.section}>
           <SectionHeader detail={isLive ? 'Automatic' : undefined} title="Pace and time" />
-          <Surface style={styles.sliders}>
+          <Surface style={styles.sliders} variant="default">
             <LabeledSlider
               disabled={isLive}
               formatValue={formatCadenceWithPace}
-              icon="walk-outline"
-              label="Cadence"
-              maximumLabel="200 · sprint"
+              label="Pace"
+              maximumLabel="Sprint"
               maximumValue={MAX_CADENCE}
-              minimumLabel="0 · still"
+              minimumLabel="Still"
               minimumValue={0}
               onValueChange={(value) => setSim({ cadenceSpm: Math.round(value) })}
               step={1}
               testID="sim-cadence-slider"
+              tint={tint}
               value={cadence}
             />
             <Divider />
             <LabeledSlider
               disabled={isLive}
               formatValue={formatHourWithTimeOfDay}
-              icon="time-outline"
-              label="Hour"
+              label="Time"
               maximumLabel="Midnight"
               maximumValue={24}
               minimumLabel="Midnight"
@@ -163,7 +163,7 @@ export default function SceneScreen() {
               onValueChange={(value) => setSim({ localHour: Math.round(value * 4) / 4 })}
               step={0.25}
               testID="sim-hour-slider"
-              tone="calm"
+              tint={tint}
               value={hour}
             />
           </Surface>
@@ -210,13 +210,12 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: space.md,
   },
   headerText: {
     flex: 1,
-    gap: space.xs,
   },
   section: {
     gap: space.md,

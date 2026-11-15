@@ -1,17 +1,16 @@
-import { LiveBadge } from '@/components/ui';
+import { AppText } from '@/components/ui';
 import type { SensingMode } from '@/lib/score';
 
 /**
- * Where the scene comes from: LIVE (amber) while Score senses it automatically,
- * YOUR SCENE (neutral) when it was set by hand on the Scene tab. The dot pulses
- * only while a session runs.
+ * Where the scene comes from, in plain words: "Live" while Score senses it
+ * automatically, "Your scene" when it was set by hand on the Scene tab.
+ * (The engine calls the hand-set mode 'simulated'.)
  */
-export function ModeBadge({ mode, active }: { mode: SensingMode; active: boolean }) {
+export function ModeBadge({ mode }: { mode: SensingMode }) {
+  const label = mode === 'live' ? 'Live' : 'Your scene';
   return (
-    <LiveBadge
-      active={active}
-      label={mode === 'live' ? 'Live' : 'Your scene'}
-      tone={mode === 'live' ? 'accent' : 'neutral'}
-    />
+    <AppText accessibilityLabel={`Scene source: ${label}`} numberOfLines={1} tone="muted" variant="meta">
+      {label}
+    </AppText>
   );
 }

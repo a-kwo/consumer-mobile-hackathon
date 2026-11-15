@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Chip, Meter, Surface } from '@/components/ui';
-import { capitalise, nudgeLine } from '@/components/now/format';
+import { AppText, Meter, Surface } from '@/components/ui';
+import { nudgeLine, sceneSentence } from '@/components/now/format';
 import type { Scene, SensingMode } from '@/lib/score';
-import { space } from '@/theme';
+import { fonts, space } from '@/theme';
 
 type Props = {
   /** `useSensing().scene`: what a pick would target right now. */
@@ -11,50 +11,41 @@ type Props = {
   mode: SensingMode;
   energyBias: number;
   nudgePicksLeft: number;
+  /** Album ink of the playing song, for the meters. Defaults to ink. */
+  tint?: string;
 };
 
 /**
- * The scene a cue would be picked for right now, as a title card with its
- * targets. It follows the sliders (or the sensors) as they move.
+ * The scene a cue would be picked for right now, as a sentence, with what the
+ * music will aim for. It follows the controls (or the phone) as they move.
  */
-export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft }: Props) {
+export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft, tint }: Props) {
   const nudge = nudgeLine(energyBias, nudgePicksLeft);
+  const tempo = scene.bpm !== null ? `Tempo in step at ${scene.bpm} BPM` : 'No tempo lock while still';
 
   return (
-    <Surface style={styles.card} variant="raised">
-      <AppText variant="overline">
+    <Surface style={styles.card}>
+      <AppText tone="muted" variant="meta">
         {mode === 'live' ? 'Your scene right now' : 'The scene you set'}
       </AppText>
-      <View style={styles.label}>
+      <View style={styles.sentence}>
         <AppText
           accessibilityRole="header"
           adjustsFontSizeToFit
           minimumFontScale={0.85}
           numberOfLines={2}
-          testID="sim-scene-label"
-          variant="displaySmall">
-          {capitalise(scene.label)}
+          style={styles.sentenceText}
+          testID="sim-scene-label">
+          {sceneSentence(scene)}
         </AppText>
       </View>
       <View style={styles.meters}>
-        <Meter label="Energy" style={styles.meter} tone="energy" value={scene.energy} />
-        <Meter label="Valence" style={styles.meter} tone="calm" value={scene.valence} />
+        <Meter label="Energy" style={styles.meter} tint={tint} value={scene.energy} />
+        <Meter label="Mood" style={styles.meter} tint={tint} value={scene.valence} />
       </View>
-      <View style={styles.chips}>
-        {scene.bpm !== null ? (
-          <Chip icon="pulse-outline" label={`Target ${scene.bpm} BPM`} size="sm" tone="accent" />
-        ) : (
-          <Chip icon="pulse-outline" label="No tempo lock" size="sm" />
-        )}
-        {nudge ? (
-          <Chip
-            icon={energyBias < 0 ? 'moon-outline' : 'flash-outline'}
-            label={nudge}
-            size="sm"
-            tone={energyBias < 0 ? 'calm' : 'energy'}
-          />
-        ) : null}
-      </View>
+      <AppText numberOfLines={2} tone="muted" variant="meta">
+        {nudge ? `${tempo} · ${nudge}` : tempo}
+      </AppText>
     </Surface>
   );
 }
@@ -63,9 +54,15 @@ const styles = StyleSheet.create({
   card: {
     gap: space.md,
   },
-  label: {
+  // Two lines of the sentence, whether or not it needs both.
+  sentence: {
     height: 56,
     justifyContent: 'center',
+  },
+  sentenceText: {
+    fontFamily: fonts.serifItalic,
+    fontSize: 22,
+    lineHeight: 28,
   },
   meters: {
     flexDirection: 'row',
@@ -73,10 +70,5 @@ const styles = StyleSheet.create({
   },
   meter: {
     flex: 1,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.sm,
   },
 });
