@@ -13,6 +13,7 @@ export function toOstEntry(play: Doc<'plays'>): OstEntry {
     songTitle: play.songTitle,
     artist: play.artist,
     coverUrl: play.coverUrl,
+    ...(play.coverColor === undefined ? {} : { coverColor: play.coverColor }),
     deezerId: play.deezerId,
     bpm: play.bpm,
     moods: play.moods,

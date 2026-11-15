@@ -32,6 +32,7 @@ export const candidateV = v.object({
   moods: v.array(v.string()),
   /** For the preview lookup, when the library has it. */
   itunesTrackId: v.optional(v.number()),
+  coverColor: v.optional(v.string()),
   /** Cosine similarity to the scene embedding, 0 when the scene has none. */
   similarity: v.number(),
   score: v.number(),
@@ -51,6 +52,7 @@ export type SongFeatures = {
   timeOfDay: string[];
   embedding: number[];
   itunesTrackId?: number;
+  coverColor?: string;
 };
 
 export function targetForScene(scene: Scene): MatchTarget {
@@ -140,6 +142,7 @@ export function rankSongs(
       valence: song.valence,
       moods: song.moods,
       ...(song.itunesTrackId === undefined ? {} : { itunesTrackId: song.itunesTrackId }),
+      ...(song.coverColor === undefined ? {} : { coverColor: song.coverColor }),
       similarity,
       score,
     });

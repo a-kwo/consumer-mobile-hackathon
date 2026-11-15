@@ -1,77 +1,73 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import Svg, { Circle, Rect } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { colors } from '@/theme';
 
 export type BrandMarkProps = {
-  /** Width and height in points. @default 32 */
+  /** Width and height in points. @default 28 */
   size?: number;
-  /** Colour of the rings and the four outer bars. @default colors.text */
+  /** Colour of the grains. @default colors.ink */
   color?: string;
-  /** Colour of the centre bar, the downbeat. @default colors.accent */
+  /** @deprecated Ignored. The mark is one colour. */
   accentColor?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-/** The same geometry as the app icon, in a 100 by 100 box. */
-const BARS = [
-  { x: 30, height: 18, accent: false },
-  { x: 40, height: 34, accent: false },
-  { x: 50, height: 50, accent: true },
-  { x: 60, height: 30, accent: false },
-  { x: 70, height: 16, accent: false },
-] as const;
-const BAR_WIDTH = 5.6;
+/**
+ * The nodal lines of the app's cymatic formula, with six lobes, sampled along
+ * rays from the centre: where a line crosses a ray, there is a grain. This is
+ * the inner part of the figure on the app icon (see .tmp/brand/render2.js).
+ */
+function grains(): readonly (readonly [number, number])[] {
+  const LOBES = 6;
+  const K = (2 * Math.PI) / 17;
+  const R_MIN = 14;
+  const R_MAX = 31;
+  const RAYS = 60;
+  const STEP = 0.25;
+  const f = (r: number, t: number) =>
+    Math.cos(LOBES * t) * Math.sin(K * r) + 0.6 * Math.sin(1.5 * K * r + 1);
+
+  const points: [number, number][] = [];
+  for (let ray = 0; ray < RAYS; ray++) {
+    const t = (ray / RAYS) * 2 * Math.PI;
+    let previous = f(R_MIN, t);
+    for (let r = R_MIN + STEP; r <= R_MAX; r += STEP) {
+      const current = f(r, t);
+      if (previous * current < 0) {
+        const crossing =
+          r - STEP + (STEP * Math.abs(previous)) / (Math.abs(previous) + Math.abs(current));
+        points.push([crossing * Math.cos(t), crossing * Math.sin(t)]);
+      }
+      previous = current;
+    }
+  }
+  return points;
+}
+
+const GRAINS = grains();
+const DOT = 1.5;
+/** Half the width of the view box: the outermost grain plus its radius. */
+const EXTENT = 31 + DOT;
 
 /**
- * Score's mark: the double ring of a film countdown leader around a waveform
- * whose downbeat is amber. Use it where the app signs its work, such as the
- * share card.
+ * Score's mark: a small cymatic figure in ink, the pattern grains make on a
+ * vibrating plate. Still, one colour. Use it beside the wordmark and where
+ * the app signs its work, such as the share card.
  *
- *   <BrandMark size={28} />
+ *   <BrandMark size={24} />
  */
-export function BrandMark({
-  size = 32,
-  color = colors.text,
-  accentColor = colors.accent,
-  style,
-}: BrandMarkProps) {
+export function BrandMark({ size = 28, color = colors.ink, style }: BrandMarkProps) {
   return (
     <Svg
       accessibilityLabel="Score"
       accessibilityRole="image"
       height={size}
       style={style}
-      viewBox="0 0 100 100"
+      viewBox={`${-EXTENT} ${-EXTENT} ${EXTENT * 2} ${EXTENT * 2}`}
       width={size}>
-      <Circle
-        cx={50}
-        cy={50}
-        fill="none"
-        r={41}
-        stroke={color}
-        strokeOpacity={0.92}
-        strokeWidth={2.4}
-      />
-      <Circle
-        cx={50}
-        cy={50}
-        fill="none"
-        r={34.5}
-        stroke={color}
-        strokeOpacity={0.3}
-        strokeWidth={0.7}
-      />
-      {BARS.map((bar) => (
-        <Rect
-          fill={bar.accent ? accentColor : color}
-          height={bar.height}
-          key={bar.x}
-          rx={BAR_WIDTH / 2}
-          width={BAR_WIDTH}
-          x={bar.x - BAR_WIDTH / 2}
-          y={50 - bar.height / 2}
-        />
+      {GRAINS.map(([x, y], index) => (
+        <Circle cx={x} cy={y} fill={color} key={index} r={DOT} />
       ))}
     </Svg>
   );

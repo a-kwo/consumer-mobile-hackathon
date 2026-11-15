@@ -6,29 +6,30 @@ import { colors, layout, radius, space, type RadiusToken, type SpaceToken } from
 export type SurfaceProps = Omit<ViewProps, 'style'> & {
   children?: ReactNode;
   /**
-   * `default` is white at 6 %, `raised` at 10 % for a panel on top of another,
-   * `accent` is tinted amber for the one panel that is live. @default 'default'
+   * `default` is paperRaised (a sheet on the page). `raised` adds a hairline
+   * edge. `accent` is paperSunk, the fill of controls. (Names kept from the
+   * first kit.) @default 'default'
    */
   variant?: 'default' | 'raised' | 'accent';
   /** Inner padding, as a spacing token. @default 'lg' */
   padding?: SpaceToken;
-  /** Corner radius, as a radius token. @default 'lg' */
+  /** Corner radius, as a radius token. @default 'md' (14) */
   radius?: RadiusToken;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * A translucent panel: white at low alpha with a hairline border, so the
- * ambient wash shows through. Score has no solid cards.
+ * A panel: a lighter sheet of paper on the page. Use it for things that are
+ * genuinely grouped (a set of sliders, a notice). Lists do not need one: rows
+ * sit straight on the paper, separated by hairlines.
  *
  *   <Surface style={{ gap: space.md }}>…</Surface>
- *   <Surface padding="none" radius="md">  rows with their own padding  </Surface>
  */
 export function Surface({
   children,
   variant = 'default',
   padding = 'lg',
-  radius: radiusToken = 'lg',
+  radius: radiusToken = 'md',
   style,
   ...rest
 }: SurfaceProps) {
@@ -38,7 +39,7 @@ export function Surface({
       style={[
         styles.surface,
         variant === 'raised' ? styles.raised : null,
-        variant === 'accent' ? styles.accent : null,
+        variant === 'accent' ? styles.sunk : null,
         // `none` adds no padding at all, so paddings passed in `style` always apply.
         padding === 'none' ? null : { padding: space[padding] },
         { borderRadius: radius[radiusToken] },
@@ -51,17 +52,14 @@ export function Surface({
 
 const styles = StyleSheet.create({
   surface: {
-    backgroundColor: colors.surface,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
+    backgroundColor: colors.paperRaised,
     overflow: 'hidden',
   },
   raised: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.hairlineStrong,
+    borderWidth: layout.hairline,
+    borderColor: colors.hairline,
   },
-  accent: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accentBorder,
+  sunk: {
+    backgroundColor: colors.paperSunk,
   },
 });

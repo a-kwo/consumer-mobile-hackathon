@@ -27,7 +27,7 @@ SONG_REQUIRED = {
     "energy": "unit", "valence": "unit", "tension": "unit", "social": "unit", "vocal": "unit",
     "confidence": "unit", "moods": "list", "scenes": "list", "timeOfDay": "list", "embedding": "vector",
 }
-SONG_OPTIONAL = {"isrc": "str", "album": "str", "itunesTrackId": "int"}
+SONG_OPTIONAL = {"isrc": "str", "album": "str", "itunesTrackId": "int", "coverColor": "str"}
 SCENE_REQUIRED = {"key": "str", "text": "str", "embedding": "vector"}
 
 
@@ -192,6 +192,9 @@ def export_songs(conn, vocab: dict, limit: int | None, min_confidence: float) ->
             row["album"] = record["album"]
         if record["itunes_track_id"]:
             row["itunesTrackId"] = int(record["itunes_track_id"])
+        # Raw dominant cover colour such as "#C8432B", from cover_color.py. Absent for grey covers.
+        if "cover_color" in record.keys() and record["cover_color"]:
+            row["coverColor"] = record["cover_color"]
         rows.append(row)
     if not rows:
         log("no labeled and embedded songs yet: songs.jsonl not written")

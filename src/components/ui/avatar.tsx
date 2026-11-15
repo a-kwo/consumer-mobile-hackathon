@@ -1,13 +1,13 @@
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout } from '@/theme';
+import { colors } from '@/theme';
 
 export type AvatarProps = {
   /** A single emoji. Profiles in Score have an emoji, not a photo. */
   emoji: string;
   /** Diameter in points. @default 40 */
   size?: number;
-  /** Draw an amber ring, for the friend whose soundtrack is playing. */
+  /** Draw an ink ring, for the friend whose soundtrack is playing. */
   ring?: boolean;
   /** The person's name, for screen readers. */
   accessibilityLabel?: string;
@@ -15,10 +15,9 @@ export type AvatarProps = {
 };
 
 /**
- * A person: an emoji in a translucent circle.
+ * A person: an emoji in a paperSunk circle.
  *
  *   <Avatar emoji="🎧" accessibilityLabel="Mina" />
- *   <Avatar emoji="🌧️" size={56} ring />
  */
 export function Avatar({ emoji, size = 40, ring = false, accessibilityLabel, style }: AvatarProps) {
   return (
@@ -45,17 +44,15 @@ const styles = StyleSheet.create({
   avatar: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.paperSunk,
   },
   ring: {
     borderWidth: 1.5,
-    borderColor: colors.accent,
+    borderColor: colors.ink,
   },
   emoji: {
     textAlign: 'center',
     includeFontPadding: false,
-    color: colors.text,
+    color: colors.ink,
   },
 });

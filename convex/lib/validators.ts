@@ -77,6 +77,8 @@ export const trackV = v.object({
   title: v.string(),
   artist: v.string(),
   coverUrl: v.string(),
+  /** Raw dominant cover colour, e.g. "#C8432B". Absent when the cover has no usable colour. */
+  coverColor: v.optional(v.string()),
   previewUrl: v.string(),
   bpm: v.number(),
   energy: v.number(),
@@ -120,6 +122,8 @@ export const ostEntryV = v.object({
   songTitle: v.string(),
   artist: v.string(),
   coverUrl: v.string(),
+  /** Raw dominant cover colour, when the song had one at log time. */
+  coverColor: v.optional(v.string()),
   deezerId: v.number(),
   bpm: v.number(),
   moods: v.array(v.string()),

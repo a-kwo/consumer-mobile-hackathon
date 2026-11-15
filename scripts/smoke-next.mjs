@@ -32,6 +32,7 @@ function tuning(name) {
 }
 
 let failures = 0;
+let coloured = 0;
 function check(condition, message) {
   if (condition) return console.log(`  ok    ${message}`);
   failures += 1;
@@ -74,6 +75,11 @@ async function picksFor(cadenceSpm, expectedPace) {
     check(error === null && scene.pace === expectedPace && scene.bpm === targetBpm, `scene is "${scene.label}"`);
     check(/^https?:\/\//.test(track.previewUrl), 'has a preview URL');
     check(Boolean(track.title && track.artist && track.coverUrl && track.reason), 'has title, artist, cover and reason');
+    check(
+      track.coverColor === undefined || /^#[0-9A-Fa-f]{6}$/.test(track.coverColor),
+      `cover colour is ${track.coverColor ?? 'absent (grey cover)'}`,
+    );
+    if (track.coverColor) coloured += 1;
     if (targetBpm !== null) {
       check(fitsStride(track.bpm, targetBpm), `${Math.round(track.bpm)} BPM fits a ${targetBpm} stride`);
     }
@@ -137,6 +143,7 @@ if (slow.tracks.length > 0 && fast.tracks.length > 0) {
   const entry = ost.entries[0];
   check(ost.entries.length === 1 && entry?.playId === playId, 'ost:get returns the play');
   check(entry?.songTitle === sample.title && entry?.bpm === sample.bpm, 'the entry carries the song details');
+  check(entry?.coverColor === sample.coverColor, 'the entry carries the same cover colour as the pick');
   check(/, 6:12pm$/.test(entry?.title ?? ''), `the entry is titled "${entry?.title}"`);
   check(ost.topMoods.length <= 3 && (sample.moods.length === 0 || ost.summary.length > 0), `summary: "${ost.summary}"`);
 
@@ -150,6 +157,8 @@ if (slow.tracks.length > 0 && fast.tracks.length > 0) {
   const replay = await client.action(anyApi.tracks.preview, { deezerId: sample.deezerId });
   check(/^https?:\/\//.test(replay.previewUrl ?? ''), 'tracks:preview returns a fresh URL for replay');
 }
+
+check(coloured > 0, `${coloured} of the picks came with a cover colour`);
 
 const all = [...slow.latencies, ...fast.latencies, ...still.latencies].sort((a, b) => a - b);
 console.log(

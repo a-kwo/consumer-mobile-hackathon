@@ -7,7 +7,7 @@ import { AppText } from './app-text';
 import { Icon, type IconName } from './icon';
 
 export type LabeledSliderProps = {
-  /** Shown as a film-credits label: "Cadence", "Hour". */
+  /** "Cadence", "Hour". Shown in sentence case. */
   label: string;
   value: number;
   /** Called continuously while dragging. */
@@ -26,7 +26,9 @@ export type LabeledSliderProps = {
   minimumLabel?: string;
   maximumLabel?: string;
   icon?: IconName;
-  /** Colour of the filled part of the track. @default 'accent' */
+  /** Colour of the filled part of the track: pass the song's album ink. Defaults to ink. */
+  tint?: string;
+  /** A tone, when there is no album ink. @default 'neutral' */
   tone?: Tone;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -34,8 +36,8 @@ export type LabeledSliderProps = {
 };
 
 /**
- * A slider with its name on the left and its current value, set as a title
- * card, on the right. For the simulator's cadence and hour controls.
+ * A slider with its name on the left and its current value, in Fraunces, on
+ * the right. For the Scene tab's cadence and hour controls.
  *
  *   <LabeledSlider
  *     label="Cadence"
@@ -65,7 +67,8 @@ export function LabeledSlider({
   minimumLabel,
   maximumLabel,
   icon,
-  tone = 'accent',
+  tint,
+  tone = 'neutral',
   disabled = false,
   style,
   testID,
@@ -76,8 +79,8 @@ export function LabeledSlider({
     <View style={[styles.root, disabled ? styles.disabled : null, style]}>
       <View style={styles.header}>
         <View style={styles.label}>
-          {icon ? <Icon name={icon} size={14} tone="tertiary" /> : null}
-          <AppText numberOfLines={1} variant="overline">
+          {icon ? <Icon name={icon} size={15} tone="muted" /> : null}
+          <AppText numberOfLines={1} variant="meta">
             {label}
           </AppText>
         </View>
@@ -88,9 +91,9 @@ export function LabeledSlider({
       <Slider
         accessibilityLabel={`${label}, ${shown}`}
         disabled={disabled}
-        maximumTrackTintColor={colors.hairlineStrong}
+        maximumTrackTintColor={colors.hairline}
         maximumValue={maximumValue}
-        minimumTrackTintColor={tones[tone].solid}
+        minimumTrackTintColor={tint ?? tones[tone].solid}
         minimumValue={minimumValue}
         onSlidingComplete={onSlidingComplete}
         onValueChange={onValueChange}
@@ -98,18 +101,14 @@ export function LabeledSlider({
         style={styles.slider}
         tapToSeek
         testID={testID}
-        // iOS keeps its native white knob, which already matches the off-white text.
-        thumbTintColor={Platform.OS === 'ios' ? undefined : colors.text}
+        // iOS keeps its native white knob; elsewhere the thumb is ink.
+        thumbTintColor={Platform.OS === 'ios' ? undefined : colors.ink}
         value={value}
       />
       {minimumLabel || maximumLabel ? (
         <View style={styles.ends}>
-          <AppText tone="tertiary" variant="caption">
-            {minimumLabel}
-          </AppText>
-          <AppText tone="tertiary" variant="caption">
-            {maximumLabel}
-          </AppText>
+          <AppText variant="meta">{minimumLabel}</AppText>
+          <AppText variant="meta">{maximumLabel}</AppText>
         </View>
       ) : null}
     </View>

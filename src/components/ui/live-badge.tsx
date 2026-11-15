@@ -1,92 +1,50 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { css, useReducedMotion } from 'react-native-reanimated';
 
-import { colors, layout, radius, space, tones, type Tone } from '@/theme';
+import { colors, space, type Tone } from '@/theme';
 
 import { AppText } from './app-text';
 
 export type LiveBadgeProps = {
-  /** Shown in upper case. @default 'Live' */
+  /** Shown as written, in sentence case: "Live sensors", "Set by hand". @default 'Live' */
   label?: string;
-  /**
-   * `accent` (amber) for live sensing, `calm` (blue) for simulated values,
-   * `neutral` for idle. @default 'accent'
-   */
+  /** `danger` and `success` colour the dot. Every other tone is ink. @default 'accent' */
   tone?: Tone;
-  /** Pulse the dot. Turn off when nothing is running. @default true */
+  /** A solid ink dot when true, a muted one when nothing is running. @default true */
   active?: boolean;
-  /** Draw the capsule outline. Off gives a bare dot and label, like a film credit. @default true */
+  /** @deprecated Ignored. The status is never outlined. */
   outlined?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-const halo = css.keyframes({
-  '0%': { transform: [{ scale: 1 }], opacity: 0.55 },
-  '70%': { transform: [{ scale: 2.8 }], opacity: 0 },
-  '100%': { transform: [{ scale: 2.8 }], opacity: 0 },
-});
-
 /**
- * The tally light: a pulsing dot and a short status word.
+ * A status in words with a small dot: where the context is coming from.
+ * It sits beside the wordmark at the top of Now. It does not pulse, and it is
+ * not a pill.
  *
- *   <LiveBadge />                                  LIVE, amber, pulsing
- *   <LiveBadge label="Simulated" tone="calm" />
- *   <LiveBadge label="Paused" tone="neutral" active={false} />
+ *   <LiveBadge label="Live sensors" />
+ *   <LiveBadge label="Paused" active={false} />
  */
 export function LiveBadge({
   label = 'Live',
   tone = 'accent',
   active = true,
-  outlined = true,
   style,
 }: LiveBadgeProps) {
-  const reduceMotion = useReducedMotion();
-  const palette = tones[tone];
-  const dotColor = tone === 'neutral' ? colors.textTertiary : palette.solid;
-  const pulsing = active && !reduceMotion;
+  let dot: string = active ? colors.ink : colors.inkFaint;
+  if (tone === 'danger') dot = colors.danger;
+  if (tone === 'success') dot = colors.success;
 
   return (
     <View style={[styles.wrap, style]}>
-      <View
-        accessibilityLabel={label}
-        accessibilityRole="text"
-        accessible
-        style={[
-          styles.badge,
-          outlined
-            ? [styles.outlined, { backgroundColor: palette.bg, borderColor: palette.border }]
-            : null,
-        ]}>
-        <View style={styles.dotBox}>
-          <Animated.View
-            style={[
-              styles.dot,
-              styles.halo,
-              { backgroundColor: dotColor },
-              pulsing
-                ? {
-                    animationName: halo,
-                    animationDuration: 1800,
-                    animationIterationCount: 'infinite',
-                    animationTimingFunction: 'ease-out',
-                  }
-                : styles.hidden,
-            ]}
-          />
-          <View style={[styles.dot, { backgroundColor: dotColor, opacity: active ? 1 : 0.6 }]} />
-        </View>
-        <AppText
-          numberOfLines={1}
-          style={{ color: tone === 'neutral' ? colors.textSecondary : palette.fg }}
-          variant="overline">
+      <View accessibilityLabel={label} accessibilityRole="text" accessible style={styles.badge}>
+        <View style={[styles.dot, { backgroundColor: dot }]} />
+        <AppText numberOfLines={1} variant="meta">
           {label}
         </AppText>
       </View>
     </View>
   );
 }
-
-const DOT = 6;
 
 const styles = StyleSheet.create({
   // Hugs its content in a column and centres on the cross axis of a row.
@@ -97,28 +55,11 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.sm,
-  },
-  outlined: {
-    height: 26,
-    paddingLeft: space.sm + 2,
-    paddingRight: space.md,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
-  },
-  dotBox: {
-    width: DOT,
-    height: DOT,
+    gap: space.sm - 2,
   },
   dot: {
-    width: DOT,
-    height: DOT,
-    borderRadius: DOT / 2,
-  },
-  halo: {
-    position: 'absolute',
-  },
-  hidden: {
-    opacity: 0,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

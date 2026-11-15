@@ -8,7 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, layout, space } from '@/theme';
 
@@ -18,14 +18,18 @@ const InsideTabsContext = createContext(false);
 
 /**
  * Marks everything below it as living inside the tab navigator. The tabs
- * layout wraps `NativeTabs` in this once; screens never need it.
+ * layout wraps the navigator in this once; screens never need it.
  */
 export function TabBarInsetProvider({ children }: { children: ReactNode }) {
   return <InsideTabsContext value={true}>{children}</InsideTabsContext>;
 }
 
-/** Home-indicator height of the device, measured once at launch. */
-const HOME_INDICATOR = initialWindowMetrics?.insets.bottom ?? 0;
+/**
+ * Whether the tab bar is drawn over the bottom of the tab screens (iOS) or
+ * laid out below them (Android, web). `TabBar` and `useScreenInsets()` must
+ * agree on this, so it lives in one place.
+ */
+export const TAB_BAR_OVERLAYS_SCREEN = Platform.OS === 'ios';
 
 export type ScreenInsets = {
   /** Space taken by the status bar or Dynamic Island. */
@@ -38,12 +42,12 @@ export type ScreenInsets = {
  * The space system chrome takes at the top and bottom of the current screen,
  * with the tab bar already accounted for on both platforms:
  *
- * - iOS: the tab bar floats over the content, so `bottom` is the tab bar plus
- *   the home indicator. Each native tab has its own safe area that reports
- *   this; `layout.tabBarHeightIOS` is only a floor.
- * - Android: the native tabs already lay the screen out above the tab bar and
- *   the navigation bar, so `bottom` is 0 inside a tab.
- * - Outside the tabs (a pushed screen, the kit preview): the plain safe area.
+ * - iOS: the tab bar is drawn over the bottom of the screen, so `bottom` is
+ *   the tab bar (56) plus the home indicator.
+ * - Android: the tab bar is laid out below the screen, above the navigation
+ *   bar, so `bottom` is 0 inside a tab.
+ * - Outside the tabs (a pushed screen, a modal, the kit preview): the plain
+ *   safe area.
  *
  * `Screen` applies these for you. Call this only for content you position
  * yourself: an absolutely placed control, or the `contentContainerStyle` of
@@ -54,17 +58,15 @@ export function useScreenInsets(): ScreenInsets {
   const insideTabs = use(InsideTabsContext);
 
   let bottom = insets.bottom;
-  if (insideTabs && Platform.OS === 'ios') {
-    bottom = Math.max(insets.bottom, HOME_INDICATOR + layout.tabBarHeightIOS);
-  } else if (insideTabs && Platform.OS === 'android') {
-    bottom = 0;
+  if (insideTabs) {
+    bottom = TAB_BAR_OVERLAYS_SCREEN ? insets.bottom + layout.tabBarHeight : 0;
   }
   return { top: insets.top, bottom };
 }
 
 export type ScreenProps = {
   children?: ReactNode;
-  /** Cover art for the ambient wash behind the screen. Omit for the quiet default gradient. */
+  /** @deprecated Ignored. The ground is plain paper. Kept so existing screens compile. */
   coverUrl?: string | null;
   /** Make the content scroll vertically. A fixed screen fills the space between the bars. @default false */
   scroll?: boolean;
@@ -83,13 +85,13 @@ export type ScreenProps = {
 };
 
 /**
- * The frame of every screen. It draws the `AmbientBackground`, keeps content
+ * The frame of every screen. It draws the paper ground, keeps content
  * clear of the status bar, the tab bar and the home indicator on both
  * platforms, applies the page margin and caps the content width on large
  * devices.
  *
  *   // Fixed layout (Now): fills the space between the bars.
- *   <Screen coverUrl={track?.coverUrl} contentStyle={{ justifyContent: 'space-between' }}>…</Screen>
+ *   <Screen contentStyle={{ justifyContent: 'space-between' }}>…</Screen>
  *
  *   // Scrolling layout (Soundtrack, Friends, Simulator).
  *   <Screen scroll contentStyle={{ gap: space.xl }}>…</Screen>
@@ -142,7 +144,7 @@ export function Screen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.paper,
   },
   fill: {
     flex: 1,

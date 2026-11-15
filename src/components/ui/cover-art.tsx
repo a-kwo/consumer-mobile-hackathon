@@ -1,10 +1,8 @@
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { css, useReducedMotion } from 'react-native-reanimated';
 
-import { beatDurationMs, colors, layout, motion, radius, shadows } from '@/theme';
+import { colors, motion, radius, shadows } from '@/theme';
 
 import { coverUrlAtSize } from './cover-url';
 import { Icon } from './icon';
@@ -14,19 +12,13 @@ export type CoverArtProps = {
   uri?: string | null;
   /** Edge length in points. Omit to fill the parent's width as a square. */
   size?: number;
-  /** Corner radius. Defaults to a radius in proportion to `size`. */
+  /** Corner radius. Defaults to 4 for thumbnails (up to 64 pt) and 6 for anything larger. */
   radius?: number;
   /**
-   * Tempo of the song. When set (and `pulsing` is not false) the cover
-   * breathes once per beat. Fast songs pulse in half time so it stays gentle.
+   * Draw the cover's two-layer warm shadow. Defaults to true for a large
+   * cover (96 pt and up, or fluid) and false for a thumbnail.
    */
-  bpm?: number | null;
-  /** Gate for the pulse: pass the playing state. @default true */
-  pulsing?: boolean;
-  /** Draw the deep soft shadow. Turn off for small thumbnails in lists. @default true */
   shadow?: boolean;
-  /** Add a coloured halo, for example `colors.accent` while live. */
-  glowColor?: string;
   /**
    * Crossfade in milliseconds when `uri` changes. Use `motion.duration.ambient`
    * on the Now screen to match the audio crossfade. @default 420
@@ -36,78 +28,55 @@ export type CoverArtProps = {
   recyclingKey?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  /** @deprecated Ignored. The cover no longer pulses; motion belongs to the cymatic figure. */
+  bpm?: number | null;
+  /** @deprecated Ignored. */
+  pulsing?: boolean;
+  /** @deprecated Ignored. The identity has no glows. */
+  glowColor?: string;
 };
 
-const pulse = css.keyframes({
-  '0%': { transform: [{ scale: 1 }] },
-  '16%': { transform: [{ scale: motion.pulseScale }] },
-  '100%': { transform: [{ scale: 1 }] },
-});
-
 /**
- * Album cover: rounded, with a soft shadow, a hairline edge so dark covers
- * hold their shape on the dark background, an optional pulse at the song's
- * tempo and a placeholder when there is nothing to show.
+ * Album cover. On Now it is the hero: 272 square, radius 6, with a long soft
+ * shadow and a tight contact shadow. In lists it is a 48 pt thumbnail, radius
+ * 4, no shadow. With nothing to show it is a paperRaised placeholder.
  *
- *   <CoverArt uri={track.coverUrl} bpm={track.bpm} pulsing={isPlaying} />   // hero, fills width
- *   <CoverArt uri={play.coverUrl} size={52} shadow={false} />               // list thumbnail
+ *   <CoverArt uri={track.coverUrl} size={sizes.cover} />     // Now
+ *   <CoverArt uri={play.coverUrl} size={sizes.thumb} />       // list row
  */
 export function CoverArt({
   uri,
   size,
   radius: radiusProp,
-  bpm,
-  pulsing = true,
-  shadow = true,
-  glowColor,
+  shadow,
   transitionMs = motion.duration.slow,
   recyclingKey,
   accessibilityLabel,
   style,
 }: CoverArtProps) {
-  const reduceMotion = useReducedMotion();
   const [failedUri, setFailedUri] = useState<string | null>(null);
 
-  const corner =
-    radiusProp ?? (size ? Math.min(radius.lg, Math.max(radius.xs, size * 0.065)) : radius.lg);
+  const thumbnail = size !== undefined && size <= 64;
+  const corner = radiusProp ?? (thumbnail ? radius.thumb : radius.cover);
+  const lifted = shadow ?? (size === undefined || size >= 96);
   const source = uri && uri !== failedUri ? coverUrlAtSize(uri, size ?? 360) : null;
-  const beatMs = bpm && bpm > 0 && pulsing && !reduceMotion ? beatDurationMs(bpm) : null;
-
-  const boxShadow = [
-    ...(shadow ? shadows.cover.boxShadow : []),
-    ...(glowColor
-      ? [{ offsetX: 0, offsetY: 0, blurRadius: 40, spreadDistance: 0, color: glowColor }]
-      : []),
-  ];
 
   return (
-    <Animated.View
+    <View
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityLabel ? 'image' : undefined}
       accessible={!!accessibilityLabel}
       style={[
         size ? { width: size, height: size } : styles.fluid,
         { borderRadius: corner },
-        boxShadow.length > 0 ? { boxShadow } : null,
-        beatMs !== null
-          ? {
-              animationName: pulse,
-              animationDuration: beatMs,
-              animationIterationCount: 'infinite',
-              animationTimingFunction: motion.easing.out,
-            }
-          : null,
+        lifted ? shadows.cover : null,
         style,
       ]}>
       <View style={[styles.clip, { borderRadius: corner }]}>
         {/* The placeholder sits underneath, so a loading cover fades in over it. */}
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.13)', 'rgba(255, 255, 255, 0.03)']}
-          end={{ x: 1, y: 1 }}
-          start={{ x: 0, y: 0 }}
-          style={[StyleSheet.absoluteFill, styles.placeholder]}>
-          <Icon name="musical-notes" size={size ? Math.max(14, size * 0.34) : 72} tone="disabled" />
-        </LinearGradient>
+        <View style={[StyleSheet.absoluteFill, styles.placeholder]}>
+          <Icon name="musical-notes" size={size ? Math.max(14, size * 0.3) : 64} tone="disabled" />
+        </View>
         {source ? (
           <Image
             accessible={false}
@@ -120,9 +89,10 @@ export function CoverArt({
             transition={{ duration: transitionMs, effect: 'cross-dissolve' }}
           />
         ) : null}
+        {/* A faint ink edge, so a cream or white cover keeps its shape on paper. */}
         <View style={[StyleSheet.absoluteFill, styles.edge, { borderRadius: corner }]} />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -134,14 +104,14 @@ const styles = StyleSheet.create({
   clip: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.paperRaised,
   },
   placeholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   edge: {
-    borderWidth: layout.hairline,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(43, 36, 32, 0.14)',
   },
 });

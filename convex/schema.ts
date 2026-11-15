@@ -26,6 +26,8 @@ export default defineSchema({
      * the lookup is exact, without it the server searches by artist and title.
      */
     itunesTrackId: v.optional(v.number()),
+    /** Raw dominant colour of the cover, such as "#C8432B". Absent for grey covers. The app clamps it to an ink. */
+    coverColor: v.optional(v.string()),
     bpm: v.number(),
     energy: v.number(),
     valence: v.number(),
@@ -66,6 +68,8 @@ export default defineSchema({
     songTitle: v.string(),
     artist: v.string(),
     coverUrl: v.string(),
+    /** Copied from the song at log time, when it has one. */
+    coverColor: v.optional(v.string()),
     bpm: v.number(),
     moods: v.array(v.string()),
     startedAt: v.number(),

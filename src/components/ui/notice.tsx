@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { layout, radius, space, tones, type Tone } from '@/theme';
+import { colors, radius, space, tones, type Tone } from '@/theme';
 
 import { AppText } from './app-text';
 import { haptics } from './haptics';
@@ -14,8 +14,8 @@ export type NoticeProps = {
   /** An optional bold lead-in. */
   title?: string;
   /**
-   * `info` (cool) for neutral status such as simulated mode, `warning`
-   * (amber), `error` (red) for something that failed, `success` (green).
+   * `info` and `warning` are ink on paperSunk (they differ by icon), `error`
+   * is earth red for something that failed, `success` is moss green.
    * @default 'info'
    */
   tone?: NoticeTone;
@@ -31,8 +31,8 @@ export type NoticeProps = {
 };
 
 const toneMap: Record<NoticeTone, { tone: Tone; icon: IconName }> = {
-  info: { tone: 'calm', icon: 'information-circle-outline' },
-  warning: { tone: 'accent', icon: 'alert-circle-outline' },
+  info: { tone: 'neutral', icon: 'information-circle-outline' },
+  warning: { tone: 'neutral', icon: 'alert-circle-outline' },
   error: { tone: 'danger', icon: 'warning-outline' },
   success: { tone: 'success', icon: 'checkmark-circle-outline' },
 };
@@ -41,7 +41,7 @@ const toneMap: Record<NoticeTone, { tone: Tone; icon: IconName }> = {
  * An inline banner for status and errors. It sits in the layout (it is not a
  * toast) so a screenshot always shows what went wrong.
  *
- *   <Notice message="No step sensor here. Using simulated values." />
+ *   <Notice message="No step sensor here. Set the scene by hand." />
  *   <Notice tone="error" title="Could not reach Score" message="Check your connection."
  *     actionLabel="Retry" onAction={retry} />
  */
@@ -58,17 +58,18 @@ export function Notice({
 }: NoticeProps) {
   const mapped = toneMap[tone];
   const palette = tones[mapped.tone];
+  const hued = tone === 'error' || tone === 'success';
 
   return (
     <View
       accessibilityLiveRegion="polite"
       accessibilityRole={tone === 'error' ? 'alert' : 'text'}
-      style={[styles.notice, { backgroundColor: palette.bg, borderColor: palette.border }, style]}
+      style={[styles.notice, { backgroundColor: palette.bg }, style]}
       testID={testID}>
-      <Icon color={palette.fg} name={icon ?? mapped.icon} size={20} style={styles.icon} />
+      <Icon color={hued ? palette.fg : colors.ink} name={icon ?? mapped.icon} size={20} />
       <View style={styles.text}>
         {title ? <AppText variant="label">{title}</AppText> : null}
-        <AppText tone={title ? 'secondary' : 'primary'} variant="caption">
+        <AppText tone={title ? 'soft' : 'primary'} variant="meta">
           {message}
         </AppText>
         {actionLabel && onAction ? (
@@ -80,7 +81,9 @@ export function Notice({
               onAction();
             }}
             style={({ pressed }) => [styles.action, pressed ? styles.pressed : null]}>
-            <AppText style={{ color: palette.fg }} variant="label">
+            <AppText
+              style={[styles.actionLabel, hued ? { color: palette.fg } : null]}
+              variant="label">
               {actionLabel}
             </AppText>
           </Pressable>
@@ -93,7 +96,7 @@ export function Notice({
           hitSlop={12}
           onPress={onDismiss}
           style={({ pressed }) => (pressed ? styles.pressed : null)}>
-          <Icon name="close" size={18} tone="secondary" />
+          <Icon name="close" size={18} tone="muted" />
         </Pressable>
       ) : null}
     </View>
@@ -106,11 +109,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: space.md,
     padding: space.md + 2,
-    borderRadius: radius.md,
-    borderWidth: layout.hairline,
+    borderRadius: radius.control,
   },
-  icon: {
-    marginTop: -1,
+  actionLabel: {
+    textDecorationLine: 'underline',
   },
   text: {
     flex: 1,

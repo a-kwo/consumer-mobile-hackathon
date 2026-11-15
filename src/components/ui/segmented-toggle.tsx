@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
-import { colors, layout, motion, radius, space } from '@/theme';
+import { colors, motion, radius, space } from '@/theme';
 
 import { AppText } from './app-text';
 import { haptics } from './haptics';
@@ -27,20 +27,17 @@ export type SegmentedToggleProps<T extends string> = {
   testID?: string;
 };
 
-const INSET = 3;
+const INSET = 4;
 
 /**
- * A two- or three-way switch with a thumb that slides under the selection.
- * For the simulator's "Live sensors / Simulated" toggle.
+ * A two- or three-way switch: a paperSunk track, 48 high, with a raised paper
+ * thumb that slides under the selection.
  *
  *   <SegmentedToggle
  *     accessibilityLabel="Context source"
  *     value={mode}
  *     onChange={setMode}
- *     options={[
- *       { value: 'live', label: 'Live', icon: 'radio-outline' },
- *       { value: 'simulated', label: 'Simulated', icon: 'options-outline' },
- *     ]}
+ *     options={[{ value: 'live', label: 'Live sensors' }, { value: 'manual', label: 'Set by hand' }]}
  *   />
  */
 export function SegmentedToggle<T extends string>({
@@ -95,15 +92,16 @@ export function SegmentedToggle<T extends string>({
               style={styles.segment}>
               {option.icon ? (
                 <Icon
-                  color={selected ? colors.text : colors.textTertiary}
+                  color={selected ? colors.ink : colors.inkMuted}
                   name={option.icon}
                   size={16}
                 />
               ) : null}
               <AppText
                 numberOfLines={1}
-                style={[styles.label, { color: selected ? colors.text : colors.textSecondary }]}
-                variant="label">
+                style={styles.label}
+                tone={selected ? 'primary' : 'muted'}
+                variant="button">
                 {option.label}
               </AppText>
             </Pressable>
@@ -117,12 +115,10 @@ export function SegmentedToggle<T extends string>({
 const styles = StyleSheet.create({
   track: {
     alignSelf: 'stretch',
-    height: 46,
+    height: 48,
     padding: INSET,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    backgroundColor: colors.paperSunk,
   },
   disabled: {
     opacity: 0.4,
@@ -135,10 +131,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
-    borderColor: colors.hairlineStrong,
-    backgroundColor: colors.surfacePressed,
+    borderRadius: radius.control - INSET,
+    backgroundColor: colors.paperRaised,
+    boxShadow: [
+      { offsetX: 0, offsetY: 1, blurRadius: 3, spreadDistance: 0, color: 'rgba(74, 52, 30, 0.14)' },
+    ],
   },
   segment: {
     flex: 1,

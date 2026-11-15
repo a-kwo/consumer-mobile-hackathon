@@ -95,6 +95,7 @@ export const pick = action({
           title: candidate.title,
           artist: candidate.artist,
           coverUrl: candidate.coverUrl,
+          ...(candidate.coverColor === undefined ? {} : { coverColor: candidate.coverColor }),
           previewUrl: preview.url,
           bpm: candidate.bpm,
           energy: candidate.energy,

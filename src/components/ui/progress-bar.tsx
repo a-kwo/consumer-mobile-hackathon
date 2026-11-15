@@ -1,14 +1,18 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { colors, motion, tones, type Tone } from '@/theme';
+import { colors, motion, sizes, tones, type Tone } from '@/theme';
 
 export type ProgressBarProps = {
   /** Progress from 0 to 1. Values outside the range are clamped. */
   value: number;
-  /** Fill colour. `neutral` is off-white. @default 'neutral' */
+  /**
+   * Fill colour: pass the song's album ink. Wins over `tone`. Defaults to ink.
+   */
+  tint?: string;
+  /** A tone, when there is no album ink. Every tone but `danger` and `success` is ink. @default 'neutral' */
   tone?: Tone;
-  /** Track thickness in points. @default 3 */
+  /** Thickness in points. @default 2 */
   height?: number;
   /**
    * Milliseconds the fill takes to glide to a new value. Match it to how often
@@ -21,14 +25,15 @@ export type ProgressBarProps = {
 };
 
 /**
- * A thin progress line: where the cue is in its 30 seconds.
+ * The progress line: 2 points high, a hairline track, filled in album ink.
  *
- *   <ProgressBar value={positionMs / durationMs} />
+ *   <ProgressBar value={positionMs / durationMs} tint={albumInk} />
  */
 export function ProgressBar({
   value,
+  tint,
   tone = 'neutral',
-  height = 3,
+  height = sizes.progress,
   transitionMs = 300,
   accessibilityLabel = 'Progress',
   style,
@@ -48,7 +53,7 @@ export function ProgressBar({
           {
             width: `${clamped * 100}%`,
             borderRadius: height / 2,
-            backgroundColor: tones[tone].solid,
+            backgroundColor: tint ?? tones[tone].solid,
             transitionProperty: 'width',
             transitionDuration: transitionMs,
             transitionTimingFunction: motion.easing.linear,
@@ -63,7 +68,7 @@ const styles = StyleSheet.create({
   track: {
     alignSelf: 'stretch',
     overflow: 'hidden',
-    backgroundColor: colors.hairlineStrong,
+    backgroundColor: colors.hairline,
   },
   fill: {
     height: '100%',

@@ -20,6 +20,7 @@ import type * as lib_preview from "../lib/preview.js";
 import type * as lib_scene from "../lib/scene.js";
 import type * as lib_titles from "../lib/titles.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as library from "../library.js";
 import type * as match from "../match.js";
 import type * as next from "../next.js";
 import type * as ost from "../ost.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/scene": typeof lib_scene;
   "lib/titles": typeof lib_titles;
   "lib/validators": typeof lib_validators;
+  library: typeof library;
   match: typeof match;
   next: typeof next;
   ost: typeof ost;

@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout, radius, shadows, space } from '@/theme';
+import { colors, radius, sizes, space } from '@/theme';
 
 import { AppText } from './app-text';
 import type { HapticKind } from './haptics';
@@ -8,17 +8,21 @@ import { Icon, type IconName } from './icon';
 import { PressableScale } from './pressable-scale';
 
 export type PrimaryButtonProps = {
-  /** Omit the label for a round, icon-only transport control. */
+  /** Omit the label for the round play and pause button. */
   label?: string;
   icon?: IconName;
   onPress?: () => void;
   /**
-   * `accent` is the filled amber "go" state (start scoring). `surface` is the
-   * quiet translucent state for the same control once running (stop).
+   * `accent` is ink with paper text: the one primary action. `surface` is
+   * paperSunk with ink text, for the same control in a quieter state.
+   * (The name `accent` is kept from the first kit; there is no accent colour.)
    * @default 'accent'
    */
   variant?: 'accent' | 'surface';
-  /** Height 48 (`md`) or 60 (`lg`). A round button is 60 or 76 across. @default 'lg' */
+  /**
+   * With a label: 44 high (`md`) or 48 high (`lg`). Round: a 48 (`md`) or
+   * 60 (`lg`, the play button) circle. @default 'lg' when round, 'md' with a label
+   */
   size?: 'md' | 'lg';
   /** Replace the icon with a spinner and ignore presses. */
   loading?: boolean;
@@ -34,19 +38,20 @@ export type PrimaryButtonProps = {
 };
 
 /**
- * The one big control on a screen: start and stop. There should be at most
- * one `accent` PrimaryButton visible at a time.
+ * The primary control. Without a label it is the play button: a 60 pt ink
+ * circle with a paper icon. With a label it is the primary button: 44 high,
+ * radius 14, ink fill, paper text. At most one per screen.
  *
- *   <PrimaryButton label="Start scoring" icon="play" onPress={start} fullWidth />
- *   <PrimaryButton icon={playing ? 'stop' : 'play'} variant={playing ? 'surface' : 'accent'}
- *     accessibilityLabel={playing ? 'Stop' : 'Start'} onPress={toggle} />
+ *   <PrimaryButton icon={playing ? 'pause' : 'play'} onPress={toggle}
+ *     accessibilityLabel={playing ? 'Pause' : 'Play'} />
+ *   <PrimaryButton label="Share" onPress={share} />
  */
 export function PrimaryButton({
   label,
   icon,
   onPress,
   variant = 'accent',
-  size = 'lg',
+  size,
   loading = false,
   disabled,
   fullWidth = false,
@@ -56,21 +61,22 @@ export function PrimaryButton({
   testID,
 }: PrimaryButtonProps) {
   const round = !label;
-  const large = size === 'lg';
-  const accent = variant === 'accent';
-  const foreground = accent ? colors.textOnAccent : colors.text;
+  const large = (size ?? (round ? 'lg' : 'md')) === 'lg';
+  const ink = variant === 'accent';
+  const foreground = ink ? colors.paper : colors.ink;
 
-  let dimensions: ViewStyle;
+  let shape: ViewStyle;
   if (round) {
-    const diameter = large ? 76 : 60;
-    dimensions = { width: diameter, height: diameter };
+    const diameter = large ? sizes.play : sizes.skip;
+    shape = { width: diameter, height: diameter, borderRadius: diameter / 2 };
   } else {
-    dimensions = {
-      height: large ? 60 : 48,
-      paddingHorizontal: large ? space.xxl : space.xl,
+    shape = {
+      height: large ? sizes.control : sizes.primary,
+      paddingHorizontal: large ? space.xl : space.lg + 2,
+      borderRadius: radius.control,
     };
   }
-  const glyphSize = round ? (large ? 30 : 24) : large ? 22 : 20;
+  const glyphSize = round ? (large ? 24 : 20) : 17;
 
   return (
     <PressableScale
@@ -82,16 +88,11 @@ export function PrimaryButton({
       // While loading the button keeps its full colour but does nothing.
       haptic={loading ? false : haptic}
       onPress={loading ? undefined : onPress}
-      pressedStyle={accent ? styles.accentPressed : styles.surfacePressed}
-      style={[
-        styles.button,
-        dimensions,
-        accent ? styles.accent : styles.surface,
-        accent && !disabled ? shadows.accentGlow : null,
-      ]}
+      pressedStyle={ink ? styles.inkPressed : styles.surfacePressed}
+      style={[styles.button, shape, ink ? styles.ink : styles.surface]}
       testID={testID}>
       {loading ? (
-        <ActivityIndicator color={foreground} />
+        <ActivityIndicator color={foreground} size="small" />
       ) : icon ? (
         <Icon
           color={foreground}
@@ -102,10 +103,7 @@ export function PrimaryButton({
         />
       ) : null}
       {label ? (
-        <AppText
-          numberOfLines={1}
-          style={[styles.label, { color: foreground }, large ? null : styles.labelMedium]}
-          variant="title">
+        <AppText numberOfLines={1} style={{ color: foreground }} variant="button">
           {label}
         </AppText>
       ) : null}
@@ -118,9 +116,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.sm + 2,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
+    gap: space.sm,
   },
   // Centred when the parent gives it a full row; a no-op inside a row of controls.
   container: {
@@ -129,24 +125,16 @@ const styles = StyleSheet.create({
   stretch: {
     alignSelf: 'stretch',
   },
-  accent: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accentBright,
+  ink: {
+    backgroundColor: colors.ink,
   },
-  accentPressed: {
-    backgroundColor: colors.accentBright,
+  inkPressed: {
+    backgroundColor: colors.inkSoft,
   },
   surface: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.paperSunk,
   },
   surfacePressed: {
-    backgroundColor: colors.surfacePressed,
-  },
-  label: {
-    letterSpacing: -0.1,
-  },
-  labelMedium: {
-    fontSize: 16,
+    backgroundColor: colors.paperPressed,
   },
 });

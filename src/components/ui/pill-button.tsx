@@ -1,6 +1,6 @@
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout, radius, space, tones, type Tone } from '@/theme';
+import { colors, radius, sizes, space, type Tone } from '@/theme';
 
 import { AppText } from './app-text';
 import type { HapticKind } from './haptics';
@@ -13,15 +13,12 @@ export type PillButtonProps = {
   /** @default 'leading' */
   iconPosition?: 'leading' | 'trailing';
   onPress?: () => void;
-  /**
-   * Tint. `neutral` for ordinary actions; `calm` and `energy` for the nudge
-   * controls; `accent` for the one action you want noticed. @default 'neutral'
-   */
+  /** Only `danger` changes anything (the label turns earth red). @default 'neutral' */
   tone?: Tone;
-  /** Height 34 (`sm`) or 42 (`md`). @default 'md' */
+  /** 48 high (`md`) or 36 high (`sm`, with a 44 pt touch target). @default 'md' */
   size?: 'sm' | 'md';
   disabled?: boolean;
-  /** Grow to share the row equally with sibling pills. */
+  /** Grow to share the row equally with sibling buttons. */
   grow?: boolean;
   /** @default 'tap' */
   haptic?: HapticKind | false;
@@ -31,11 +28,13 @@ export type PillButtonProps = {
 };
 
 /**
- * A secondary action: a translucent capsule with a label and optional icon.
+ * The secondary text button: paperSunk fill, ink label, radius 14, no
+ * outline. Calmer and More energy are two of these with `grow`, either side
+ * of play and skip. (The name is kept from the first kit; it is not a pill.)
  *
- *   <PillButton icon="moon-outline" label="Calmer" tone="calm" onPress={calmer} />
- *   <PillButton icon="flash-outline" label="More energy" tone="energy" onPress={more} />
- *   <PillButton icon="share-outline" label="Share" size="sm" onPress={share} />
+ *   <PillButton label="Calmer" grow onPress={calmer} />
+ *   <PillButton label="More energy" grow onPress={more} />
+ *   <PillButton icon="refresh" label="Retry" size="sm" onPress={retry} />
  */
 export function PillButton({
   label,
@@ -51,12 +50,9 @@ export function PillButton({
   style,
   testID,
 }: PillButtonProps) {
-  const palette = tones[tone];
   const small = size === 'sm';
-  const neutral = tone === 'neutral';
-  const glyph = icon ? (
-    <Icon color={neutral ? colors.text : palette.fg} name={icon} size={small ? 15 : 17} />
-  ) : null;
+  const foreground = tone === 'danger' ? colors.danger : colors.ink;
+  const glyph = icon ? <Icon color={foreground} name={icon} size={small ? 15 : 17} /> : null;
 
   return (
     <PressableScale
@@ -65,23 +61,18 @@ export function PillButton({
       disabled={disabled}
       fill={grow}
       haptic={haptic}
-      hitSlop={small ? 5 : 1}
+      hitSlop={small ? 4 : 0}
       onPress={onPress}
-      pressedStyle={{ backgroundColor: neutral ? colors.surfacePressed : palette.border }}
-      style={[
-        styles.pill,
-        small ? styles.small : styles.medium,
-        {
-          backgroundColor: neutral ? colors.surface : palette.bg,
-          borderColor: neutral ? colors.hairlineStrong : palette.border,
-        },
-      ]}
+      pressedStyle={styles.pressed}
+      style={[styles.button, small ? styles.small : styles.medium, grow ? styles.tight : null]}
       testID={testID}>
       {iconPosition === 'leading' ? glyph : null}
       <AppText
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
         numberOfLines={1}
-        style={[small ? styles.labelSmall : null, { color: neutral ? colors.text : palette.fg }]}
-        variant="label">
+        style={[small ? styles.labelSmall : null, { color: foreground }]}
+        variant="button">
         {label}
       </AppText>
       {iconPosition === 'trailing' ? glyph : null}
@@ -90,28 +81,35 @@ export function PillButton({
 }
 
 const styles = StyleSheet.create({
-  pill: {
+  button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
+    backgroundColor: colors.paperSunk,
+  },
+  pressed: {
+    backgroundColor: colors.paperPressed,
   },
   medium: {
-    height: 42,
-    paddingHorizontal: space.lg + 2,
+    height: sizes.control,
+    paddingHorizontal: space.lg,
     gap: space.sm,
+    borderRadius: radius.control,
   },
   small: {
-    height: 34,
-    paddingHorizontal: space.md + 2,
+    height: 36,
+    paddingHorizontal: space.md,
     gap: 6,
+    borderRadius: 10,
   },
   labelSmall: {
     fontSize: 13,
-    lineHeight: 17,
   },
   grow: {
     flex: 1,
+  },
+  // Sharing a row, the width comes from the row, so the side padding can be small.
+  tight: {
+    paddingHorizontal: space.sm,
   },
 });

@@ -1,6 +1,6 @@
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout } from '@/theme';
+import { colors, sizes } from '@/theme';
 
 import type { HapticKind } from './haptics';
 import { Icon, type IconName } from './icon';
@@ -11,14 +11,15 @@ export type IconButtonProps = {
   /** Required: an icon alone says nothing to a screen reader. */
   accessibilityLabel: string;
   onPress?: () => void;
-  /** Diameter: `sm` 36, `md` 44, `lg` 56. @default 'md' */
+  /** Diameter: `sm` 36, `md` 48 (the skip button), `lg` 60. @default 'md' */
   size?: 'sm' | 'md' | 'lg';
   /**
-   * `surface` is a translucent disc, `ghost` has no fill until pressed,
-   * `accent` is filled amber. @default 'surface'
+   * `surface` is a paperSunk circle with an ink glyph, `ghost` has no fill
+   * until pressed, `accent` is an ink circle with a paper glyph.
+   * @default 'surface'
    */
   variant?: 'surface' | 'ghost' | 'accent';
-  /** Show the on state (amber tint), for toggles. */
+  /** Show the on state (ink fill, paper glyph), for toggles. */
   selected?: boolean;
   disabled?: boolean;
   /** @default 'tap' */
@@ -28,14 +29,14 @@ export type IconButtonProps = {
   testID?: string;
 };
 
-const DIAMETER = { sm: 36, md: 44, lg: 56 } as const;
-const GLYPH = { sm: 18, md: 21, lg: 26 } as const;
+const DIAMETER = { sm: 36, md: sizes.skip, lg: sizes.play } as const;
+const GLYPH = { sm: 17, md: 20, lg: 24 } as const;
 
 /**
- * A round icon control: skip, share, close, back.
+ * A round icon control: skip, replay, close, back.
  *
  *   <IconButton icon="play-skip-forward" accessibilityLabel="Skip this cue" onPress={skip} />
- *   <IconButton icon="share-outline" variant="ghost" size="sm" accessibilityLabel="Share" />
+ *   <IconButton icon="close" variant="ghost" size="sm" accessibilityLabel="Close" />
  */
 export function IconButton({
   icon,
@@ -50,21 +51,16 @@ export function IconButton({
   testID,
 }: IconButtonProps) {
   const diameter = DIAMETER[size];
+  const filled = variant === 'accent' || selected;
 
   let fill: ViewStyle = styles.surface;
   let pressed: ViewStyle = styles.surfacePressed;
-  let glyph: string = colors.text;
-  if (variant === 'accent') {
-    fill = styles.accent;
-    pressed = styles.accentPressed;
-    glyph = colors.textOnAccent;
-  } else if (selected) {
-    fill = styles.selected;
-    pressed = styles.selectedPressed;
-    glyph = colors.accent;
+  if (filled) {
+    fill = styles.ink;
+    pressed = styles.inkPressed;
   } else if (variant === 'ghost') {
     fill = styles.ghost;
-    pressed = styles.ghostPressed;
+    pressed = styles.surface;
   }
 
   return (
@@ -74,17 +70,18 @@ export function IconButton({
       containerStyle={style}
       disabled={disabled}
       haptic={haptic}
-      hitSlop={size === 'sm' ? 6 : 2}
+      // The 36 pt size still gets a 44 pt touch target.
+      hitSlop={size === 'sm' ? 4 : 0}
       onPress={onPress}
       pressedStyle={pressed}
-      scaleTo={0.92}
+      scaleTo={0.94}
       style={[
         styles.button,
         { width: diameter, height: diameter, borderRadius: diameter / 2 },
         fill,
       ]}
       testID={testID}>
-      <Icon color={glyph} name={icon} size={GLYPH[size]} />
+      <Icon color={filled ? colors.paper : colors.ink} name={icon} size={GLYPH[size]} />
     </PressableScale>
   );
 }
@@ -93,33 +90,20 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: layout.hairline,
-    borderColor: colors.transparent,
   },
   surface: {
-    backgroundColor: colors.surface,
-    borderColor: colors.hairline,
+    backgroundColor: colors.paperSunk,
   },
   surfacePressed: {
-    backgroundColor: colors.surfacePressed,
+    backgroundColor: colors.paperPressed,
   },
   ghost: {
     backgroundColor: colors.transparent,
   },
-  ghostPressed: {
-    backgroundColor: colors.surface,
+  ink: {
+    backgroundColor: colors.ink,
   },
-  accent: {
-    backgroundColor: colors.accent,
-  },
-  accentPressed: {
-    backgroundColor: colors.accentBright,
-  },
-  selected: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accentBorder,
-  },
-  selectedPressed: {
-    backgroundColor: 'rgba(245, 168, 60, 0.24)',
+  inkPressed: {
+    backgroundColor: colors.inkSoft,
   },
 });

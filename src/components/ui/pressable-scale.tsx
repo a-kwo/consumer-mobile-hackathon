@@ -97,7 +97,7 @@ export function PressableScale({
             style,
             pressed ? pressedStyle : null,
             {
-              opacity: isDisabled ? 0.4 : pressed ? pressedOpacity : 1,
+              opacity: isDisabled ? 0.38 : pressed ? pressedOpacity : 1,
               transform: [{ scale: pressed && !reduceMotion ? scaleTo : 1 }],
               transitionProperty: ['transform', 'opacity', 'backgroundColor', 'borderColor'],
               transitionDuration: motion.duration.press,

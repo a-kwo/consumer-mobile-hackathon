@@ -19,9 +19,10 @@ export type IconProps = {
 };
 
 /**
- * An Ionicons glyph in a Score colour role.
+ * An Ionicons glyph in ink (or a quieter ink role). Use icons sparingly: the
+ * identity prefers words, and the tab bar has none.
  *
- *   <Icon name="rainy-outline" size={16} tone="secondary" />
+ *   <Icon name="rainy-outline" size={16} tone="muted" />
  */
 export function Icon({ name, size = 20, tone = 'primary', color, style }: IconProps) {
   return <Ionicons name={name} size={size} color={color ?? textColors[tone]} style={style} />;

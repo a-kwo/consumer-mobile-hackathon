@@ -1,6 +1,6 @@
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { useFonts } from 'expo-font';
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -16,25 +16,25 @@ import { colors } from '@/theme';
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 400, fade: true });
 
-// The window behind every screen is the same near-black as the screens, so
-// nothing lighter can flash through during a transition or a keyboard resize.
-SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
+// The window behind every screen is the same paper as the screens, so nothing
+// else can flash through during a transition or a keyboard resize.
+SystemUI.setBackgroundColorAsync(colors.paper).catch(() => {});
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
 });
 
-/** Score is dark only: one navigation theme, built on the tokens. */
+/** Score is light only: one navigation theme, paper and ink. */
 const navigationTheme = {
-  ...DarkTheme,
+  ...DefaultTheme,
   colors: {
-    ...DarkTheme.colors,
-    primary: colors.accent,
-    background: colors.bg,
-    card: colors.bg,
-    text: colors.text,
+    ...DefaultTheme.colors,
+    primary: colors.ink,
+    background: colors.paper,
+    card: colors.paper,
+    text: colors.ink,
     border: colors.hairline,
-    notification: colors.accent,
+    notification: colors.ink,
   },
 };
 
@@ -53,7 +53,7 @@ export default function RootLayout() {
             <Stack
               screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: colors.bg },
+                contentStyle: { backgroundColor: colors.paper },
               }}>
               <Stack.Screen name="(tabs)" />
               {/* A friend's soundtrack, pushed from the Friends tab. */}
@@ -64,7 +64,8 @@ export default function RootLayout() {
               {/* Hidden design-kit preview: consumermobilehackathon://kit */}
               <Stack.Screen name="kit" />
             </Stack>
-            <StatusBar style="light" />
+            {/* Dark status bar content, for the paper ground. */}
+            <StatusBar style="dark" />
           </ThemeProvider>
         </ScoreProvider>
       </ConvexProvider>
@@ -75,6 +76,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.paper,
   },
 });

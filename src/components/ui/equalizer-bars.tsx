@@ -10,7 +10,12 @@ export type EqualizerBarsProps = {
   size?: number;
   /** Number of bars, 3 to 5. @default 4 */
   bars?: 3 | 4 | 5;
-  /** @default 'accent' */
+  /**
+   * Colour of the bars while playing: pass the song's album ink. Wins over
+   * `tone`. Defaults to ink.
+   */
+  tint?: string;
+  /** A colour role, when there is no album ink. @default 'primary' */
   tone?: TextTone;
   /** Announced by screen readers. Defaults to "Playing" or "Paused". */
   accessibilityLabel?: string;
@@ -41,25 +46,25 @@ const keyframes = SHAPES.map(([a, b, c, d]) =>
 );
 
 /**
- * The visible proof that audio is playing: bars that dance while `playing`
- * and settle to a flat line when not. Put it next to the title on the Now
- * screen and on the active row of a tracklist.
+ * A small sign that audio is playing: thin bars that move while `playing`
+ * and settle to a flat line when not. For the active row of a tracklist and
+ * the replay bar.
  *
- *   <EqualizerBars playing={isPlaying} />
- *   <EqualizerBars playing size={12} tone="primary" />
+ *   <EqualizerBars playing={isPlaying} tint={albumInk} />
  */
 export function EqualizerBars({
   playing,
   size = 16,
   bars = 4,
-  tone = 'accent',
+  tint,
+  tone = 'primary',
   accessibilityLabel,
   style,
 }: EqualizerBarsProps) {
   const reduceMotion = useReducedMotion();
-  const barWidth = Math.max(2, Math.round(size / 5.5));
-  const gap = Math.max(1.5, barWidth * 0.7);
-  const color = playing ? textColors[tone] : colors.textTertiary;
+  const barWidth = Math.max(2, Math.round(size / 6));
+  const gap = Math.max(1.5, barWidth * 0.75);
+  const color = playing ? (tint ?? textColors[tone]) : colors.inkFaint;
 
   return (
     <View

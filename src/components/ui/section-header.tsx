@@ -6,33 +6,37 @@ import { colors, layout, space } from '@/theme';
 import { AppText } from './app-text';
 
 export type SectionHeaderProps = {
-  /** Shown as a film-credits label: upper case, letter-spaced. */
+  /** Shown as written, in sentence case. */
   title: string;
-  /** A short value after the title, in the same style: a count, a time ("07", "6:12 PM"). */
+  /** A short value at the right, in muted meta text: a count, a time. */
   detail?: string;
-  /** Anything to pin to the right edge: a `PillButton`, an `IconButton`. */
+  /** Anything to pin to the right edge: a small button. */
   trailing?: ReactNode;
-  /** Draw the hairline that runs from the title to the right edge. @default true */
+  /** Draw a hairline under the heading. @default false */
   rule?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * The heading of a section, set like a credit: a small label, a hairline that
- * runs to the edge, and an optional detail or control at the end.
+ * The heading of a section: a plain label in ink, with an optional detail or
+ * control at the right.
  *
- *   <SectionHeader title="Today's cues" detail="07" />
- *   <SectionHeader title="Scene" trailing={<PillButton size="sm" label="Reset" />} />
+ *   <SectionHeader title="Today's cues" detail="7 songs" />
  */
-export function SectionHeader({ title, detail, trailing, rule = true, style }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  detail,
+  trailing,
+  rule = false,
+  style,
+}: SectionHeaderProps) {
   return (
-    <View accessibilityRole="header" style={[styles.header, style]}>
-      <AppText numberOfLines={1} style={styles.title} variant="overline">
+    <View accessibilityRole="header" style={[styles.header, rule ? styles.ruled : null, style]}>
+      <AppText numberOfLines={1} style={styles.title} variant="title">
         {title}
       </AppText>
-      {rule ? <View style={styles.rule} /> : <View style={styles.spacer} />}
       {detail ? (
-        <AppText numberOfLines={1} style={styles.detail} variant="overline">
+        <AppText numberOfLines={1} style={styles.detail} variant="meta">
           {detail}
         </AppText>
       ) : null}
@@ -46,23 +50,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    minHeight: 24,
+    minHeight: 28,
   },
-  // The title keeps its full width; a long detail is the one that truncates.
+  ruled: {
+    paddingBottom: space.sm,
+    borderBottomWidth: layout.hairline,
+    borderBottomColor: colors.hairline,
+  },
   title: {
-    flexShrink: 0,
-    maxWidth: '70%',
+    flex: 1,
   },
   detail: {
     flexShrink: 1,
-  },
-  rule: {
-    flex: 1,
-    minWidth: space.lg,
-    height: layout.hairline,
-    backgroundColor: colors.hairlineStrong,
-  },
-  spacer: {
-    flex: 1,
   },
 });

@@ -11,7 +11,7 @@ import { PressableScale } from './pressable-scale';
 export type ListRowProps = {
   title: string;
   subtitle?: string;
-  /** A film-credits label above the title: "Cue 07", "6:12 PM". */
+  /** A line of muted meta text above the title: "6:12 PM". */
   overline?: string;
   /** Left slot: a `CoverArt`, `CoverMosaic` or `Avatar`. */
   leading?: ReactNode;
@@ -20,11 +20,11 @@ export type ListRowProps = {
   /** Makes the whole row tappable. */
   onPress?: () => void;
   /**
-   * `serif` sets the title in Instrument Serif, for generated cue titles such
-   * as "Rain on 4th Street". @default 'sans'
+   * `serif` sets the title in Fraunces (17 / 22), for a soundtrack entry's
+   * generated title. @default 'sans'
    */
   titleStyle?: 'sans' | 'serif';
-  /** Mark the row as the one that is playing: the title turns amber. */
+  /** Mark the row as the one that is playing: its title is set a weight heavier. */
   active?: boolean;
   /** Show a chevron at the far right, for rows that open something. */
   chevron?: boolean;
@@ -41,12 +41,11 @@ export type ListRowProps = {
  * text and a trailing slot.
  *
  *   <ListRow
- *     overline="Cue 07"
  *     title="Rain on 4th Street"
  *     titleStyle="serif"
- *     subtitle="Night Drive · Cinematic Orchestra"
- *     leading={<CoverArt uri={play.coverUrl} size={52} shadow={false} />}
- *     trailing={<EqualizerBars playing={isThisRow} size={14} />}
+ *     subtitle="No Surprises · Radiohead"
+ *     leading={<CoverArt uri={play.coverUrl} size={sizes.thumb} />}
+ *     trailing={<IconButton icon="play" size="sm" accessibilityLabel="Replay" />}
  *     active={isThisRow}
  *     onPress={() => replay(play)}
  *   />
@@ -72,24 +71,24 @@ export function ListRow({
       {leading}
       <View style={styles.text}>
         {overline ? (
-          <AppText numberOfLines={1} variant="overline">
+          <AppText numberOfLines={1} variant="meta">
             {overline}
           </AppText>
         ) : null}
         <AppText
           numberOfLines={titleStyle === 'serif' ? 2 : 1}
-          tone={active ? 'accent' : 'primary'}
-          variant={titleStyle === 'serif' ? 'displaySmall' : 'title'}>
+          style={active ? styles.active : null}
+          variant={titleStyle === 'serif' ? 'entryTitle' : 'title'}>
           {title}
         </AppText>
         {subtitle ? (
-          <AppText numberOfLines={1} variant="caption">
+          <AppText numberOfLines={1} variant="meta">
             {subtitle}
           </AppText>
         ) : null}
       </View>
       {trailing}
-      {chevron ? <Icon name="chevron-forward" size={16} tone="tertiary" /> : null}
+      {chevron ? <Icon name="chevron-forward" size={16} tone="muted" /> : null}
     </>
   );
 
@@ -129,11 +128,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    minHeight: 56,
-    paddingVertical: space.sm + 2,
+    minHeight: 72,
+    paddingVertical: space.md,
+  },
+  active: {
+    fontWeight: '600',
   },
   text: {
     flex: 1,
-    gap: space.xxs,
+    gap: 1,
   },
 });

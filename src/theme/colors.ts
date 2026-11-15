@@ -1,132 +1,159 @@
 /**
- * Score colour tokens. Dark only.
+ * Score colour tokens: warm paper and brown-black ink, like the liner notes
+ * of a record. Light only; there is no dark theme.
  *
- * The base is a near-black with a trace of blue-violet, never a grey panel.
- * Depth comes from `AmbientBackground` (the current cover, blurred and dimmed)
- * rather than from stacked opaque cards, so surfaces are white at low alpha
- * with a hairline border.
+ * There is no accent colour in the theme. The only colour on screen besides
+ * paper and ink is "album ink", computed per song from its cover and passed
+ * to graphics (`tint` on `ProgressBar`, `EqualizerBars`, `Meter`,
+ * `LabeledSlider`). Album ink is never used for text.
  *
- * There is exactly one accent: projector amber. Use it for the one thing on
- * screen that is live or primary. `energy` (warm) and `calm` (cool) are
- * semantic, not decorative.
+ * The first block is the identity's own vocabulary. The second block keeps
+ * the names the first version of the kit used, re-pointed at paper and ink,
+ * so existing screens keep compiling. New code should use the first block.
  */
 
-/** Off-white "paper" used for all text, expressed as RGB so alpha steps stay in sync. */
-const PAPER = '243, 239, 230';
-/** The base near-black as RGB, for scrims and gradients that must end on the base. */
-const INK = '10, 10, 14';
+const PAPER_RGB = '244, 237, 225';
+const INK_RGB = '43, 36, 32';
 
 export const colors = {
-  // Base
-  bg: '#0A0A0E',
-  /** Opaque step above the base, for the rare thing that cannot be translucent (sheets, share card). */
-  bgRaised: '#14141B',
+  // ── The identity ───────────────────────────────────────────────────────
+  /** Screen background. */
+  paper: '#F4EDE1',
+  /** Placeholder covers, sheets, panels. */
+  paperRaised: '#FBF7EF',
+  /** Secondary buttons and other controls. */
+  paperSunk: '#EAE1D2',
+  /** A control on `paperSunk` while pressed, and the selected step of a quiet control. */
+  paperPressed: '#DFD4C2',
+  /** Dividers and the progress track. */
+  hairline: '#DDD3C3',
+  /** Primary text, the play button, the primary button. */
+  ink: '#2B2420',
+  /** The reason line. Also `ink` controls while pressed. */
+  inkSoft: '#4A413A',
+  /** Artist, scene line, meta text, inactive tabs. About 4.9:1 on paper: do not go lighter for text. */
+  inkMuted: '#6F655C',
+  /** Disabled glyphs and placeholder icons only. Too light for text that must be read. */
+  inkFaint: '#A89E92',
+
+  /** Something failed. An earth red, used only by `Notice` and destructive labels. */
+  danger: '#9A3B2B',
+  dangerDim: '#F1DDD2',
+  /** Something worked. A moss green, used only by `Notice`. */
+  success: '#4C6A3A',
+  successDim: '#E2E6D0',
+
+  /** A veil over imagery, for text on top of a photograph. */
+  scrim: `rgba(${INK_RGB}, 0.35)`,
+  scrimHeavy: `rgba(${INK_RGB}, 0.6)`,
+  transparent: 'transparent',
   black: '#000000',
 
-  // Text: off-white with two quieter steps
-  text: '#F3EFE6',
-  textSecondary: `rgba(${PAPER}, 0.66)`,
-  textTertiary: `rgba(${PAPER}, 0.42)`,
-  textDisabled: `rgba(${PAPER}, 0.26)`,
-  /** Text and icons on top of a filled accent control. */
-  textOnAccent: '#1B1206',
-
-  // Accent: projector amber. Use sparingly.
-  accent: '#F5A83C',
-  accentBright: '#FFC56B',
-  accentDim: 'rgba(245, 168, 60, 0.14)',
-  accentBorder: 'rgba(245, 168, 60, 0.36)',
-
-  // Semantic
-  /** Warm: high energy, faster, "more energy". */
-  energy: '#FF7A4A',
-  energyDim: 'rgba(255, 122, 74, 0.14)',
-  energyBorder: 'rgba(255, 122, 74, 0.34)',
-  /** Cool: calm, slower, "calmer", simulated. */
-  calm: '#7FB2F0',
-  calmDim: 'rgba(127, 178, 240, 0.14)',
-  calmBorder: 'rgba(127, 178, 240, 0.34)',
-  danger: '#FF6B61',
-  dangerDim: 'rgba(255, 107, 97, 0.13)',
-  dangerBorder: 'rgba(255, 107, 97, 0.34)',
-  success: '#7FD6A4',
-  successDim: 'rgba(127, 214, 164, 0.13)',
-  successBorder: 'rgba(127, 214, 164, 0.32)',
-
-  // Translucent surfaces
-  surface: 'rgba(255, 255, 255, 0.06)',
-  surfaceRaised: 'rgba(255, 255, 255, 0.10)',
-  surfacePressed: 'rgba(255, 255, 255, 0.15)',
-  hairline: 'rgba(255, 255, 255, 0.10)',
-  hairlineStrong: 'rgba(255, 255, 255, 0.20)',
-
-  // Scrims over imagery
-  scrim: `rgba(${INK}, 0.55)`,
-  scrimHeavy: `rgba(${INK}, 0.82)`,
-  transparent: 'transparent',
+  // ── Names kept from the first kit (aliases) ────────────────────────────
+  bg: '#F4EDE1',
+  bgRaised: '#FBF7EF',
+  text: '#2B2420',
+  textSecondary: '#6F655C',
+  textTertiary: '#6F655C',
+  textDisabled: '#A89E92',
+  /** Text and icons on an `ink` fill. */
+  textOnAccent: '#F4EDE1',
+  /** There is no accent colour any more: "accent" is ink. */
+  accent: '#2B2420',
+  accentBright: '#4A413A',
+  accentDim: '#DFD4C2',
+  accentBorder: '#DFD4C2',
+  energy: '#2B2420',
+  energyDim: '#EAE1D2',
+  energyBorder: '#EAE1D2',
+  calm: '#6F655C',
+  calmDim: '#EAE1D2',
+  calmBorder: '#EAE1D2',
+  dangerBorder: '#F1DDD2',
+  successBorder: '#E2E6D0',
+  surface: '#EAE1D2',
+  surfaceRaised: '#FBF7EF',
+  surfacePressed: '#DFD4C2',
+  hairlineStrong: '#DDD3C3',
 } as const;
 
 export type ColorToken = keyof typeof colors;
 
-/** The base colour at a given alpha, for gradients that fade into the background. */
-export function ink(alpha: number): string {
-  return `rgba(${INK}, ${alpha})`;
+/** Paper at a given alpha, for fades into the screen background. */
+export function paperAlpha(alpha: number): string {
+  return `rgba(${PAPER_RGB}, ${alpha})`;
 }
 
-/** The text colour at a given alpha. */
-export function paper(alpha: number): string {
-  return `rgba(${PAPER}, ${alpha})`;
+/** Ink at a given alpha. Not for text: use `ink`, `inkSoft` or `inkMuted`. */
+export function inkAlpha(alpha: number): string {
+  return `rgba(${INK_RGB}, ${alpha})`;
 }
 
 /**
- * Tones shared by Chip, LiveBadge, Meter, Notice, PillButton and friends.
- * `fg` is for text and icons, `bg` and `border` for a tinted translucent fill,
- * `solid` for bars and dots.
+ * @deprecated Kept so existing screens compile. In the first kit this meant
+ * "the background colour at an alpha", and it still does: it now returns
+ * PAPER. Use `paperAlpha`.
+ */
+export function ink(alpha: number): string {
+  return paperAlpha(alpha);
+}
+
+/**
+ * @deprecated Kept so existing screens compile. In the first kit this meant
+ * "the text colour at an alpha", and it still does: it now returns INK. Use
+ * `inkAlpha`.
+ */
+export function paper(alpha: number): string {
+  return inkAlpha(alpha);
+}
+
+/**
+ * Tones accepted by Chip, LiveBadge, Meter, Notice, PillButton and friends.
+ * Only `danger` and `success` carry a hue; the rest are steps of ink, because
+ * the theme has no accent. `fg` is for text and icons, `bg` for a fill,
+ * `solid` for bars and dots. `border` equals `bg`: nothing in the kit is
+ * outlined.
  */
 export type Tone = 'neutral' | 'accent' | 'energy' | 'calm' | 'danger' | 'success';
 
 export const tones: Record<Tone, { fg: string; bg: string; border: string; solid: string }> = {
   neutral: {
-    fg: colors.textSecondary,
-    bg: colors.surface,
-    border: colors.hairline,
-    solid: colors.text,
+    fg: colors.inkMuted,
+    bg: colors.paperSunk,
+    border: colors.paperSunk,
+    solid: colors.ink,
   },
-  accent: {
-    fg: colors.accent,
-    bg: colors.accentDim,
-    border: colors.accentBorder,
-    solid: colors.accent,
-  },
-  energy: {
-    fg: colors.energy,
-    bg: colors.energyDim,
-    border: colors.energyBorder,
-    solid: colors.energy,
-  },
+  accent: { fg: colors.ink, bg: colors.paperSunk, border: colors.paperSunk, solid: colors.ink },
+  energy: { fg: colors.ink, bg: colors.paperSunk, border: colors.paperSunk, solid: colors.ink },
   calm: {
-    fg: colors.calm,
-    bg: colors.calmDim,
-    border: colors.calmBorder,
-    solid: colors.calm,
+    fg: colors.inkMuted,
+    bg: colors.paperSunk,
+    border: colors.paperSunk,
+    solid: colors.inkMuted,
   },
   danger: {
     fg: colors.danger,
     bg: colors.dangerDim,
-    border: colors.dangerBorder,
+    border: colors.dangerDim,
     solid: colors.danger,
   },
   success: {
     fg: colors.success,
     bg: colors.successDim,
-    border: colors.successBorder,
+    border: colors.successDim,
     solid: colors.success,
   },
 };
 
-/** Text colour roles accepted by `AppText` and `Icon`. */
+/**
+ * Text colour roles accepted by `AppText` and `Icon`. Use `primary` (ink),
+ * `soft` (inkSoft) and `muted` (inkMuted). The other names are kept from the
+ * first kit and resolve to one of those three.
+ */
 export type TextTone =
   | 'primary'
+  | 'soft'
+  | 'muted'
   | 'secondary'
   | 'tertiary'
   | 'disabled'
@@ -135,17 +162,21 @@ export type TextTone =
   | 'calm'
   | 'danger'
   | 'success'
+  | 'onInk'
   | 'onAccent';
 
 export const textColors: Record<TextTone, string> = {
-  primary: colors.text,
-  secondary: colors.textSecondary,
-  tertiary: colors.textTertiary,
-  disabled: colors.textDisabled,
-  accent: colors.accent,
-  energy: colors.energy,
-  calm: colors.calm,
+  primary: colors.ink,
+  soft: colors.inkSoft,
+  muted: colors.inkMuted,
+  secondary: colors.inkMuted,
+  tertiary: colors.inkMuted,
+  disabled: colors.inkFaint,
+  accent: colors.ink,
+  energy: colors.ink,
+  calm: colors.inkMuted,
   danger: colors.danger,
   success: colors.success,
-  onAccent: colors.textOnAccent,
+  onInk: colors.paper,
+  onAccent: colors.paper,
 };

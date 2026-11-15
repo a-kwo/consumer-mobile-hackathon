@@ -1,6 +1,6 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout, radius, space, tones, type Tone } from '@/theme';
+import { colors, space, tones, type Tone } from '@/theme';
 
 import { AppText } from './app-text';
 import { Icon, type IconName } from './icon';
@@ -8,7 +8,7 @@ import { Icon, type IconName } from './icon';
 export type ChipProps = {
   label: string;
   icon?: IconName;
-  /** @default 'neutral' */
+  /** Only `danger` and `success` change the colour; the rest are ink on paperSunk. @default 'neutral' */
   tone?: Tone;
   /** `sm` is 24 pt tall, `md` is 30 pt. @default 'md' */
   size?: 'sm' | 'md';
@@ -16,18 +16,20 @@ export type ChipProps = {
 };
 
 /**
- * A small read-only tag: an icon and a short value. Use it for the facts of
- * the moment (cadence, weather, tempo, a mood).
+ * A small read-only tag: a quiet filled rectangle with a short value. It is
+ * not outlined and not a pill.
  *
- *   <Chip icon="walk-outline" label="112 spm" />
- *   <Chip icon="rainy-outline" label="Rain" tone="calm" />
+ *   <Chip icon="walk-outline" label="112 steps/min" />
  *
- * For a tappable choice use `ChoiceChips`; for an action use `PillButton`.
+ * Prefer words where you can: the identity tells weather and pace in a meta
+ * line ("92 steps/min · Rain"), which is `<AppText variant="meta">`. For a
+ * tappable choice use `ChoiceChips`; for an action use `PillButton`.
  */
 export function Chip({ label, icon, tone = 'neutral', size = 'md', style }: ChipProps) {
   const palette = tones[tone];
   const small = size === 'sm';
-  const foreground = tone === 'neutral' ? colors.text : palette.fg;
+  const hued = tone === 'danger' || tone === 'success';
+  const foreground = hued ? palette.fg : colors.ink;
 
   return (
     <View style={[styles.wrap, style]}>
@@ -35,19 +37,15 @@ export function Chip({ label, icon, tone = 'neutral', size = 'md', style }: Chip
         style={[
           styles.chip,
           small ? styles.small : styles.medium,
-          { backgroundColor: palette.bg, borderColor: palette.border },
+          { backgroundColor: palette.bg },
         ]}>
         {icon ? (
-          <Icon
-            color={tone === 'neutral' ? colors.textSecondary : palette.fg}
-            name={icon}
-            size={small ? 12 : 14}
-          />
+          <Icon color={hued ? palette.fg : colors.inkMuted} name={icon} size={small ? 12 : 14} />
         ) : null}
         <AppText
           numberOfLines={1}
           style={[styles.label, small ? styles.labelSmall : null, { color: foreground }]}
-          variant="label">
+          variant="meta">
           {label}
         </AppText>
       </View>
@@ -65,27 +63,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
-    borderRadius: radius.pill,
-    borderWidth: layout.hairline,
+    borderRadius: 8,
   },
   medium: {
     height: 30,
-    paddingHorizontal: space.md,
+    paddingHorizontal: space.md - 2,
     gap: 6,
   },
   small: {
     height: 24,
-    paddingHorizontal: space.sm + 2,
+    paddingHorizontal: space.sm,
     gap: space.xs,
+    borderRadius: 6,
   },
   label: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '500',
+    lineHeight: 18,
     flexShrink: 1,
   },
   labelSmall: {
     fontSize: 12,
-    lineHeight: 15,
+    lineHeight: 16,
   },
 });

@@ -69,6 +69,7 @@ export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'p
     songTitle: song.title,
     artist: song.artist,
     coverUrl: song.coverUrl,
+    ...(song.coverColor === undefined ? {} : { coverColor: song.coverColor }),
     bpm: song.bpm,
     moods: song.moods.slice(0, 3),
     startedAt: play.startedAt,

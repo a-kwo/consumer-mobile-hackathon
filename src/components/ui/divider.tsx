@@ -11,10 +11,10 @@ export type DividerProps = {
 };
 
 /**
- * A hairline rule.
+ * A hairline: one point, in `colors.hairline`. Rows of a list are separated
+ * by these.
  *
  *   <Divider />
- *   <Divider inset={52 + space.md} />    under a ListRow with a 52 pt cover
  */
 export function Divider({ inset = 0, vertical = false, style }: DividerProps) {
   return (

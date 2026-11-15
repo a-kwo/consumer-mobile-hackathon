@@ -11,6 +11,7 @@
 export { AmbientBackground } from './ambient-background';
 export type { AmbientBackgroundProps } from './ambient-background';
 export { Screen, TabBarInsetProvider, useScreenInsets } from './screen';
+export { TabBar } from './tab-bar';
 export type { ScreenInsets, ScreenProps } from './screen';
 
 // Type and icons

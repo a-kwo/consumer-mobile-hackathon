@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, layout, motion, radius, shadows } from '@/theme';
+import { colors, motion, radius, shadows } from '@/theme';
 
 import { CoverArt } from './cover-art';
 import { coverUrlAtSize } from './cover-url';
@@ -11,7 +11,7 @@ export type CoverMosaicProps = {
   uris: readonly (string | null | undefined)[];
   /** Edge length in points. */
   size: number;
-  /** Corner radius. Defaults to a radius in proportion to `size`. */
+  /** Corner radius. Defaults to 4 up to 64 pt and 6 above. */
   radius?: number;
   /** Draw the soft shadow. @default false */
   shadow?: boolean;
@@ -41,7 +41,7 @@ export function CoverMosaic({
   style,
 }: CoverMosaicProps) {
   const covers = uris.filter((uri): uri is string => !!uri).slice(0, 4);
-  const corner = radiusProp ?? Math.min(radius.lg, Math.max(radius.xs, size * 0.065));
+  const corner = radiusProp ?? (size <= 64 ? radius.thumb : radius.cover);
 
   if (covers.length <= 1) {
     return (
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: GAP,
     overflow: 'hidden',
-    backgroundColor: colors.bg,
+    backgroundColor: colors.paper,
   },
   column: {
     flex: 1,
@@ -108,10 +108,10 @@ const styles = StyleSheet.create({
   },
   tile: {
     flex: 1,
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.paperRaised,
   },
   edge: {
-    borderWidth: layout.hairline,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(43, 36, 32, 0.14)',
   },
 });

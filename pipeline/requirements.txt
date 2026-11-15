@@ -11,6 +11,8 @@ llvmlite==0.50.0
 # Local embeddings (BAAI/bge-small-en-v1.5 through ONNX)
 fastembed==0.9.1
 onnxruntime==1.32.0
+# Cover colours (cover_color.py)
+Pillow==13.0.0
 # Labeling
 anthropic==2.8.0
 openai==3.51.0
