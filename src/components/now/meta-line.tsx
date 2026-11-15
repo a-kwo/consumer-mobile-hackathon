@@ -5,8 +5,8 @@ import type { PlayContext, Scene, ScoreLocation } from '@/lib/score';
 
 import { metaLine, occasionShort } from './format';
 
-/** About what fits on one line of meta text on a 375-wide phone before it has to shrink. */
-const MAX_CHARS = 46;
+/** About what fits on one line of meta text on a 375-wide phone, allowing for a slight shrink. */
+const MAX_CHARS = 52;
 const MAX_PLACE_CHARS = 26;
 
 type Props = {

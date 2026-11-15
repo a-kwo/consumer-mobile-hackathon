@@ -227,6 +227,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
     backgroundColor: colors.paperSunk,
     color: colors.ink,
+    // No browser focus ring on web; the caret shows focus.
+    outlineWidth: 0,
   },
   results: {
     paddingHorizontal: space.lg,
