@@ -1,10 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
 import { cueNumber, mosaicCovers, toReplayItems } from '@/components/ost/format';
+import { LeadPhoto } from '@/components/ost/lead-photo';
+import { PhotoStrip } from '@/components/ost/photo-strip';
 import { useFeed } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
@@ -41,6 +44,8 @@ export default function FriendScreen() {
   const insets = useScreenInsets();
   const replayInset = useReplayBarListInset();
   const barSpace = useReplayBarInset();
+  // A photo that will not load gives the cover back to the mosaic.
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
 
   const item = feed?.find((candidate) => candidate.profile.deviceId === friendId);
   const listId = `feed:${friendId}`;
@@ -77,6 +82,8 @@ export default function FriendScreen() {
 
   const { profile, entries } = item;
   const covers = mosaicCovers(entries);
+  const leadPhoto = item.leadPhotoUrl && item.leadPhotoUrl !== failedPhoto ? item.leadPhotoUrl : null;
+  const photoUrls = item.photoUrls ?? [];
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
   // The replay plays a snapshot of the list taken when it started, and the live
@@ -104,11 +111,22 @@ export default function FriendScreen() {
         <View style={styles.topBarBalance} />
       </View>
 
+      {leadPhoto ? (
+        <LeadPhoto
+          accessibilityLabel={`Photo from ${profile.displayName}'s soundtrack`}
+          onError={() => setFailedPhoto(leadPhoto)}
+          shadow
+          style={styles.leadPhoto}
+          testID="friend-lead-photo"
+          uri={leadPhoto}
+        />
+      ) : null}
+
       <View style={styles.hero}>
         <CoverMosaic
           accessibilityLabel={`Cover of ${profile.displayName}'s soundtrack`}
-          shadow
-          size={112}
+          shadow={!leadPhoto}
+          size={leadPhoto ? 72 : 112}
           uris={covers}
         />
         <View style={styles.heroText}>
@@ -121,11 +139,22 @@ export default function FriendScreen() {
             variant="displayMedium">
             {profile.displayName}
           </AppText>
+          {item.title ? (
+            <AppText numberOfLines={2} testID="friend-title" variant="title">
+              {item.title}
+            </AppText>
+          ) : null}
           <AppText numberOfLines={1} variant="caption">
             {feedMeta(item, now)}
           </AppText>
         </View>
       </View>
+
+      {photoUrls.length > 1 ? (
+        <View style={styles.photos}>
+          <PhotoStrip photos={photoUrls.map((url) => ({ key: url, url }))} testID="friend-photo" />
+        </View>
+      ) : null}
 
       {item.summary ? (
         <AppText style={styles.summary} tone="secondary" variant="serifItalic">
@@ -219,6 +248,12 @@ const styles = StyleSheet.create({
   },
   topBarBalance: {
     width: layout.minTouch,
+  },
+  leadPhoto: {
+    marginTop: space.lg,
+  },
+  photos: {
+    marginTop: space.lg,
   },
   hero: {
     flexDirection: 'row',

@@ -1,8 +1,9 @@
+import { Image } from 'expo-image';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText, CoverArt, EqualizerBars, PressableScale } from '@/components/ui';
 import type { OstEntry } from '@/lib/score';
-import { colors, fonts, space } from '@/theme';
+import { colors, fonts, layout, motion, radius, space } from '@/theme';
 
 import { cueNumber, formatClock } from './format';
 
@@ -25,8 +26,9 @@ export const CUE_TEXT_INSET = NUMBER_WIDTH + space.sm + CUE_COVER_SIZE + space.m
 
 /**
  * One cue of a soundtrack: its number, cover, generated title in the serif,
- * the song underneath and the time it played. The row the replay is on turns
- * amber and shows the equalizer in place of the time.
+ * the song underneath and the time it played. A photo taken during the cue
+ * sits beside the time. The row the replay is on turns amber and shows the
+ * equalizer in place of the time.
  */
 export function CueRow({ entry, index, state, onPress, testID }: CueRowProps) {
   const active = state !== 'idle';
@@ -37,8 +39,8 @@ export function CueRow({ entry, index, state, onPress, testID }: CueRowProps) {
     <PressableScale
       accessibilityHint={active ? 'Stops the replay' : 'Replays from this cue'}
       accessibilityLabel={`Cue ${index + 1}, ${entry.title}. ${entry.songTitle} by ${entry.artist}${
-        active ? ', playing' : ''
-      }`}
+        entry.photoUrl ? ', with a photo' : ''
+      }${active ? ', playing' : ''}`}
       accessibilityState={{ selected: active }}
       containerStyle={styles.container}
       fill
@@ -71,6 +73,18 @@ export function CueRow({ entry, index, state, onPress, testID }: CueRowProps) {
           {entry.songTitle} — {entry.artist}
         </AppText>
       </View>
+      {entry.photoUrl ? (
+        <Image
+          accessible={false}
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          recyclingKey={entry.playId}
+          source={entry.photoUrl}
+          style={styles.photo}
+          testID={`${testID}-photo`}
+          transition={motion.duration.base}
+        />
+      ) : null}
       <View style={styles.trailing}>
         {state === 'loading' ? (
           <ActivityIndicator accessibilityLabel="Loading" color={colors.accent} size="small" />
@@ -110,6 +124,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     letterSpacing: 0,
+  },
+  photo: {
+    width: CUE_COVER_SIZE - 8,
+    height: CUE_COVER_SIZE - 8,
+    marginLeft: space.sm,
+    borderRadius: radius.xs,
+    borderWidth: layout.hairline,
+    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.bgRaised,
   },
   trailing: {
     minWidth: 58,

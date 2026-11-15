@@ -186,6 +186,28 @@ export const TUNING = {
   seedBackfillGapMs: { min: 35 * 60 * 1000, max: 75 * 60 * 1000 },
   /** A friend's newest play lands up to this long before the seeder ran, so friends do not tie. */
   seedJitterMs: 12 * 60 * 1000,
+
+  // ---- Shared soundtracks and photos ----
+
+  share: {
+    /** A soundtrack's own title is cut to this many characters. */
+    maxTitleChars: 48,
+    /** A soundtrack holds at most this many photos. */
+    maxPhotosPerOst: 6,
+    /** The phone resizes a photo to this many pixels on its long side before upload. */
+    photoLongSidePx: 1600,
+    photoJpegQuality: 0.8,
+    /** Larger uploads are refused and deleted. */
+    maxPhotoBytes: 8 * 1024 * 1024,
+    /** A photo lands on the cue that started at most this long before it was taken. */
+    photoCueWindowMs: 15 * 60 * 1000,
+    /** A local day sent by the phone must be this long, give or take a daylight-saving hour. */
+    dayMs: { min: 22 * 60 * 60 * 1000, max: 26 * 60 * 60 * 1000 },
+    /** How many songs a feed card previews. */
+    feedPreviewSongs: 3,
+    /** Pixel size of the generated lead images of the seeded friends. */
+    seedPhoto: { width: 480, height: 360 },
+  },
 } as const;
 
 export type Tuning = typeof TUNING;

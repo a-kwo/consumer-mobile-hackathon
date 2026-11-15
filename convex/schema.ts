@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-import { playContextV } from './lib/validators';
+import { playContextV, visibilityV } from './lib/validators';
 
 /** Must equal shared/vocab.json `embedding.dimensions`. */
 export const EMBEDDING_DIMENSIONS = 384;
@@ -96,4 +96,34 @@ export default defineSchema({
     temperatureC: v.union(v.number(), v.null()),
     fetchedAt: v.number(),
   }).index('by_cell', ['cell']),
+
+  /**
+   * What a device has said about one of its days: a title, who may see it, its
+   * photos. One row per device per local day, created by the first such edit;
+   * a day without a row is an untitled soundtrack its friends can see.
+   */
+  osts: defineTable({
+    deviceId: v.string(),
+    /** The local day, `YYYY-MM-DD`, as the phone names it. */
+    date: v.string(),
+    /** The same day as the phone's local midnights, since the server knows no timezones. */
+    dayStart: v.number(),
+    dayEnd: v.number(),
+    title: v.optional(v.string()),
+    visibility: visibilityV,
+    /** Other people see entry titles without place names. */
+    hideLocations: v.boolean(),
+  })
+    .index('by_device_date', ['deviceId', 'date'])
+    .index('by_device_dayStart', ['deviceId', 'dayStart']),
+
+  photos: defineTable({
+    ostId: v.id('osts'),
+    /** The cue that was playing at `takenAt`, when there was one. */
+    playId: v.optional(v.id('plays')),
+    storageId: v.id('_storage'),
+    takenAt: v.number(),
+  })
+    .index('by_ost', ['ostId', 'takenAt'])
+    .index('by_storageId', ['storageId']),
 });

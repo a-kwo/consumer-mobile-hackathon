@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
+import { useOstEditing } from '@/components/ost/editing';
 import {
   addDays,
   cueCount,
@@ -14,7 +15,9 @@ import {
   startOfLocalDay,
   toReplayItems,
 } from '@/components/ost/format';
-import { useOst } from '@/components/ost/queries';
+import { LeadPhoto } from '@/components/ost/lead-photo';
+import { PhotoStrip } from '@/components/ost/photo-strip';
+import { useOst, type OstPhoto } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
 import { TabBarProbe, useReplayBarListInset } from '@/components/replay';
@@ -25,14 +28,20 @@ import {
   EmptyState,
   IconButton,
   LiveBadge,
+  Notice,
+  PillButton,
   Screen,
   SectionHeader,
+  SegmentedToggle,
   useScreenInsets,
 } from '@/components/ui';
 import { useProfile, useReplay, useSession, type OstEntry } from '@/lib/score';
-import { layout, space } from '@/theme';
+import { colors, layout, radius, space, typography } from '@/theme';
+
+import { TUNING } from '../../../convex/tuning';
 
 const NO_ENTRIES: OstEntry[] = [];
+const NO_PHOTOS: OstPhoto[] = [];
 
 /** The Soundtrack tab: one day as an album, with its cues as the tracklist. */
 export default function SoundtrackScreen() {
@@ -56,6 +65,44 @@ export default function SoundtrackScreen() {
   const listId = `ost:${dayKey(dayStart)}`;
   const replayingHere = replay.listId === listId;
   const scoringLive = isToday && session.status !== 'idle';
+
+  // Everything below is absent until the day has been edited once, and on a
+  // backend from before sharing: then the day is untitled, visible and photoless.
+  const photos = ost?.photos ?? NO_PHOTOS;
+  const title = ost?.title;
+  const isPrivate = ost?.visibility === 'private';
+  const hidePlaces = ost?.hideLocations ?? false;
+  const editing = useOstEditing(deviceId, dayStart);
+  // A photo that will not load gives the cover back to the mosaic.
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const leadPhoto = photos.length > 0 && photos[0].url !== failedPhoto ? photos[0].url : null;
+  // Null while the title is not being edited.
+  const [draftTitle, setDraftTitle] = useState<string | null>(null);
+
+  const goToDay = (offset: number) => {
+    setDayOffset(Math.min(0, offset));
+    setDraftTitle(null);
+    editing.dismissNotice();
+  };
+
+  const saveTitle = async () => {
+    if (draftTitle === null) return;
+    if (draftTitle.trim() === (title ?? '') || (await editing.rename(draftTitle))) setDraftTitle(null);
+  };
+
+  const confirmRemovePhoto = (key: string) => {
+    const photo = photos.find((candidate) => candidate.photoId === key);
+    if (!photo) return;
+    // The browser has no native alert sheet, so there the tap removes at once.
+    if (Platform.OS === 'web') {
+      void editing.removePhoto(photo.photoId);
+      return;
+    }
+    Alert.alert('Remove this photo?', 'It comes off the soundtrack for good.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void editing.removePhoto(photo.photoId) },
+    ]);
+  };
 
   // The replay plays a snapshot of the list taken when it started, and the live
   // list can shift under it (the oldest cue drops off), so the playing row is
@@ -84,6 +131,114 @@ export default function SoundtrackScreen() {
     else statusLine = ost.summary ? `${cueCount(entries.length)} · ${ost.summary}` : cueCount(entries.length);
   }
 
+  const controls =
+    entries.length > 0 ? (
+      <View style={styles.controls}>
+        {draftTitle !== null ? (
+          <View style={styles.titleEdit}>
+            <TextInput
+              accessibilityLabel="Soundtrack title"
+              autoCapitalize="sentences"
+              autoFocus
+              keyboardAppearance="dark"
+              maxLength={TUNING.share.maxTitleChars}
+              onChangeText={setDraftTitle}
+              onSubmitEditing={saveTitle}
+              placeholder={formatLongDate(dayStart)}
+              placeholderTextColor={colors.textDisabled}
+              returnKeyType="done"
+              selectionColor={colors.accent}
+              style={styles.titleInput}
+              testID="ost-title-input"
+              value={draftTitle}
+            />
+            <IconButton
+              accessibilityLabel="Save the title"
+              disabled={editing.busy !== null}
+              icon="checkmark"
+              onPress={saveTitle}
+              testID="ost-title-save"
+              variant="accent"
+            />
+            <IconButton
+              accessibilityLabel="Cancel"
+              icon="close"
+              onPress={() => setDraftTitle(null)}
+              testID="ost-title-cancel"
+            />
+          </View>
+        ) : (
+          <View style={styles.actions}>
+            {isToday ? (
+              <PillButton
+                accessibilityLabel="Add a photo to this soundtrack"
+                disabled={editing.busy !== null}
+                icon="image-outline"
+                label={editing.busy === 'photo' ? 'Adding…' : 'Add photo'}
+                onPress={() => void editing.addPhoto(photos.length)}
+                size="sm"
+                testID="ost-add-photo"
+              />
+            ) : null}
+            <PillButton
+              accessibilityLabel="Edit the title of this soundtrack"
+              icon="pencil"
+              label="Title"
+              onPress={() => setDraftTitle(title ?? '')}
+              size="sm"
+              testID="ost-rename"
+            />
+            <PillButton
+              accessibilityLabel={hidePlaces ? 'Places hidden from friends. Show them' : 'Places shown to friends. Hide them'}
+              disabled={editing.busy !== null}
+              icon={hidePlaces ? 'eye-off-outline' : 'location-outline'}
+              label={hidePlaces ? 'Places hidden' : 'Places shown'}
+              onPress={() => void editing.setHideLocations(!hidePlaces)}
+              size="sm"
+              testID="ost-hide-places"
+              tone={hidePlaces ? 'accent' : 'neutral'}
+            />
+          </View>
+        )}
+
+        <SegmentedToggle
+          accessibilityLabel="Who can see this soundtrack"
+          disabled={editing.busy === 'details'}
+          onChange={(value) => void editing.setVisibility(value)}
+          options={[
+            { value: 'private', label: 'Private', icon: 'lock-closed-outline' },
+            { value: 'friends', label: 'Friends', icon: 'people-outline' },
+          ]}
+          testID="ost-visibility"
+          value={isPrivate ? 'private' : 'friends'}
+        />
+        <AppText align="center" testID="ost-visibility-note" variant="caption">
+          {isPrivate
+            ? 'Only you can see this day.'
+            : `Friends see this day in their feed${hidePlaces ? ', without its place names' : ''}.`}
+        </AppText>
+
+        {photos.length > 0 ? (
+          <PhotoStrip
+            disabled={editing.busy !== null}
+            onRemove={confirmRemovePhoto}
+            photos={photos.map((photo) => ({ key: photo.photoId, url: photo.url }))}
+            testID="ost-photo"
+          />
+        ) : null}
+
+        {editing.notice ? (
+          <Notice
+            message={editing.notice.message}
+            onDismiss={editing.dismissNotice}
+            testID="ost-edit-notice"
+            title={editing.notice.title}
+            tone={editing.notice.tone}
+          />
+        ) : null}
+      </View>
+    ) : null;
+
   const header = (
     <View style={styles.header}>
       <View style={styles.topBar}>
@@ -102,26 +257,45 @@ export default function SoundtrackScreen() {
         />
       </View>
 
-      <CoverMosaic
-        accessibilityLabel={`Cover of the soundtrack for ${formatLongDate(dayStart)}`}
-        shadow
-        size={176}
-        style={styles.mosaic}
-        uris={covers}
-      />
+      {leadPhoto ? (
+        <LeadPhoto
+          accessibilityLabel={`Photo from ${formatLongDate(dayStart)}`}
+          covers={covers}
+          onError={() => setFailedPhoto(leadPhoto)}
+          shadow
+          style={styles.leadPhoto}
+          testID="ost-lead-photo"
+          uri={leadPhoto}
+        />
+      ) : (
+        <CoverMosaic
+          accessibilityLabel={`Cover of the soundtrack for ${formatLongDate(dayStart)}`}
+          shadow
+          size={176}
+          style={styles.mosaic}
+          uris={covers}
+        />
+      )}
 
       <View style={styles.dayRow}>
         <IconButton
           accessibilityLabel="Previous day"
           icon="chevron-back"
-          onPress={() => setDayOffset(dayOffset - 1)}
+          onPress={() => goToDay(dayOffset - 1)}
           size="sm"
           testID="ost-prev-day"
           variant="ghost"
         />
         <View style={styles.dayText}>
-          <AppText align="center" tone={isToday ? 'accent' : 'tertiary'} variant="overline">
-            {relativeDayLabel(dayStart, today)}
+          <AppText
+            align="center"
+            numberOfLines={1}
+            testID={title ? 'ost-date' : undefined}
+            tone={isToday ? 'accent' : 'tertiary'}
+            variant="overline">
+            {title
+              ? `${relativeDayLabel(dayStart, today)} · ${formatLongDate(dayStart)}`
+              : relativeDayLabel(dayStart, today)}
           </AppText>
           <AppText
             accessibilityRole="header"
@@ -129,16 +303,16 @@ export default function SoundtrackScreen() {
             align="center"
             minimumFontScale={0.7}
             numberOfLines={2}
-            testID="ost-date"
+            testID={title ? 'ost-title' : 'ost-date'}
             variant="displayMedium">
-            {formatLongDate(dayStart)}
+            {title ?? formatLongDate(dayStart)}
           </AppText>
         </View>
         <IconButton
           accessibilityLabel="Next day"
           disabled={isToday}
           icon="chevron-forward"
-          onPress={() => setDayOffset(Math.min(0, dayOffset + 1))}
+          onPress={() => goToDay(dayOffset + 1)}
           size="sm"
           testID="ost-next-day"
           variant="ghost"
@@ -148,6 +322,8 @@ export default function SoundtrackScreen() {
       <AppText align="center" style={styles.status} testID="ost-summary" tone="secondary">
         {statusLine}
       </AppText>
+
+      {controls}
 
       {entries.length > 0 ? (
         <SectionHeader detail={cueNumber(entries.length - 1)} style={styles.section} title="Cues" />
@@ -179,7 +355,7 @@ export default function SoundtrackScreen() {
         fill={false}
         icon="moon-outline"
         message="No cues were logged on this day."
-        onAction={() => setDayOffset(0)}
+        onAction={() => goToDay(0)}
         testID="ost-empty"
         title="A quiet day"
       />
@@ -202,6 +378,7 @@ export default function SoundtrackScreen() {
           contentInsetAdjustmentBehavior="never"
           data={entries}
           keyExtractor={(entry) => entry.playId}
+          keyboardShouldPersistTaps="handled"
           // New cues are appended, so the offset holds on its own; this also
           // holds it if the oldest cue ever drops off the top of a long day.
           maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
@@ -245,6 +422,35 @@ const styles = StyleSheet.create({
   mosaic: {
     alignSelf: 'center',
     marginTop: space.lg,
+  },
+  leadPhoto: {
+    marginTop: space.lg,
+  },
+  controls: {
+    gap: space.md,
+    marginTop: space.lg,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: space.sm,
+  },
+  titleEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  titleInput: {
+    ...typography.title,
+    flex: 1,
+    height: layout.minTouch,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: layout.hairline,
+    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.surface,
+    color: colors.text,
   },
   dayRow: {
     flexDirection: 'row',

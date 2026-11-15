@@ -11,6 +11,7 @@
 import type * as crons from "../crons.js";
 import type * as feed from "../feed.js";
 import type * as health from "../health.js";
+import type * as lib_bokeh from "../lib/bokeh.js";
 import type * as lib_device from "../lib/device.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_match from "../lib/match.js";
@@ -23,6 +24,7 @@ import type * as lib_validators from "../lib/validators.js";
 import type * as match from "../match.js";
 import type * as next from "../next.js";
 import type * as ost from "../ost.js";
+import type * as photos from "../photos.js";
 import type * as plays from "../plays.js";
 import type * as profiles from "../profiles.js";
 import type * as seed from "../seed.js";
@@ -40,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   feed: typeof feed;
   health: typeof health;
+  "lib/bokeh": typeof lib_bokeh;
   "lib/device": typeof lib_device;
   "lib/hash": typeof lib_hash;
   "lib/match": typeof lib_match;
@@ -52,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   match: typeof match;
   next: typeof next;
   ost: typeof ost;
+  photos: typeof photos;
   plays: typeof plays;
   profiles: typeof profiles;
   seed: typeof seed;

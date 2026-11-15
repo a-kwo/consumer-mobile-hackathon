@@ -47,6 +47,14 @@
       ],
       "expo-sharing",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Score lets you add your own photos to your soundtrack.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-sensors",
         {
           "motionPermission": "Score reads your step cadence to match the music to your pace."

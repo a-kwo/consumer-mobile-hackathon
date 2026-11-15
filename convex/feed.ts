@@ -2,8 +2,9 @@ import { v } from 'convex/values';
 
 import type { Doc } from './_generated/dataModel';
 import { type QueryCtx, query } from './_generated/server';
-import { summarizeMoods, toOstEntry } from './lib/ost';
+import { publicTitle, summarizeMoods, toOstEntry } from './lib/ost';
 import { type FeedItem, feedItemV } from './lib/validators';
+import { loadPhotos } from './ost';
 import { TUNING } from './tuning';
 
 /**
@@ -37,7 +38,10 @@ async function feedProfiles(ctx: QueryCtx): Promise<Doc<'profiles'>[]> {
   });
 }
 
-/** Recent soundtracks from other profiles, newest first. */
+/**
+ * Recent soundtracks from other profiles, newest first. A day its owner made
+ * private never appears; a day with no `osts` row is visible to friends.
+ */
 export const list = query({
   args: { deviceId: v.string() },
   returns: v.array(feedItemV),
@@ -53,14 +57,46 @@ export const list = query({
 
     const items = await Promise.all(
       profiles.map(async (profile): Promise<FeedItem | null> => {
-        const plays = await ctx.db
-          .query('plays')
-          .withIndex('by_device_startedAt', (q) => q.eq('deviceId', profile.deviceId).gte('startedAt', since))
-          .order('desc')
-          .filter((q) => q.eq(q.field('skipped'), false))
-          .take(maxPerProfile);
+        const [recent, osts] = await Promise.all([
+          ctx.db
+            .query('plays')
+            .withIndex('by_device_startedAt', (q) => q.eq('deviceId', profile.deviceId).gte('startedAt', since))
+            .order('desc')
+            .filter((q) => q.eq(q.field('skipped'), false))
+            .take(maxPerProfile),
+          // Every day that can overlap the window: a day is at most `dayMs.max` long.
+          ctx.db
+            .query('osts')
+            .withIndex('by_device_dayStart', (q) =>
+              q.eq('deviceId', profile.deviceId).gt('dayStart', since - TUNING.share.dayMs.max),
+            )
+            .take(4),
+        ]);
+        const ostFor = (play: Doc<'plays'>) =>
+          osts.find((ost) => play.startedAt >= ost.dayStart && play.startedAt < ost.dayEnd);
+        const plays = recent.reverse().filter((play) => ostFor(play)?.visibility !== 'private');
         if (plays.length === 0) return null;
-        const entries = plays.reverse().map(toOstEntry);
+
+        // The days the visible plays fall on, oldest first, each with its photos.
+        const days = await Promise.all(
+          osts
+            .filter((ost) => plays.some((play) => ostFor(play) === ost))
+            .sort((a, b) => a.dayStart - b.dayStart)
+            .map(async (ost) => ({ ost, photos: await loadPhotos(ctx, ost._id) })),
+        );
+        const photos = days.flatMap((day) => day.photos);
+        const photoByPlay = new Map(photos.flatMap((photo) => (photo.playId ? [[photo.playId, photo.url] as const] : [])));
+        const title = ostFor(plays[plays.length - 1])?.title;
+        const leadPhotoUrl = [...days].reverse().find((day) => day.photos.length > 0)?.photos[0].url;
+
+        const entries = plays.map((play) => {
+          const photoUrl = photoByPlay.get(play._id);
+          return {
+            ...toOstEntry(play),
+            ...(ostFor(play)?.hideLocations ? { title: publicTitle(play) } : {}),
+            ...(photoUrl ? { photoUrl } : {}),
+          };
+        });
         return {
           profile: {
             // A deviceId is its owner's only credential, so it is never published.
@@ -72,6 +108,9 @@ export const list = query({
           entries,
           ...summarizeMoods(entries),
           latestAt: entries[entries.length - 1].startedAt,
+          ...(title ? { title } : {}),
+          ...(leadPhotoUrl ? { leadPhotoUrl } : {}),
+          ...(photos.length > 0 ? { photoUrls: photos.map((photo) => photo.url) } : {}),
         };
       }),
     );

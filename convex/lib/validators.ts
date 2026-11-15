@@ -128,8 +128,26 @@ export const ostEntryV = v.object({
   startedAt: v.number(),
   weather: weatherV,
   localHour: v.number(),
+  /** The photo taken during this cue, when there is one. */
+  photoUrl: v.optional(v.string()),
+  /** `ost:get` only, when the soundtrack hides its places: the title other people see. */
+  publicTitle: v.optional(v.string()),
 });
 export type OstEntry = Infer<typeof ostEntryV>;
+
+/** Who may see a soundtrack. No `osts` row means `friends`. `public` is reserved for the Everyone tab. */
+export const visibilityV = v.union(v.literal('private'), v.literal('friends'), v.literal('public'));
+export type Visibility = Infer<typeof visibilityV>;
+
+/** One photo of a soundtrack, as its owner sees it. */
+export const ostPhotoV = v.object({
+  photoId: v.id('photos'),
+  url: v.string(),
+  takenAt: v.number(),
+  /** The cue that was playing when it was taken. */
+  playId: v.optional(v.id('plays')),
+});
+export type OstPhoto = Infer<typeof ostPhotoV>;
 
 export const ostV = v.object({
   entries: v.array(ostEntryV),
@@ -137,6 +155,13 @@ export const ostV = v.object({
   topMoods: v.array(v.string()),
   /** One line summarising the day, e.g. "mostly reflective, a little hopeful". */
   summary: v.string(),
+  /** The owner's own title. Absent: show the date. */
+  title: v.optional(v.string()),
+  /** The three below are absent until the day has an `osts` row; read them as friends, false and none. */
+  visibility: v.optional(visibilityV),
+  hideLocations: v.optional(v.boolean()),
+  /** Oldest first. The first one is the soundtrack's lead image. */
+  photos: v.optional(v.array(ostPhotoV)),
 });
 export type Ost = Infer<typeof ostV>;
 
@@ -147,5 +172,11 @@ export const feedItemV = v.object({
   summary: v.string(),
   /** startedAt of the newest entry. */
   latestAt: v.number(),
+  /** The owner's title for the newest day in `entries`. */
+  title: v.optional(v.string()),
+  /** The lead image: the first photo of the newest day that has one. */
+  leadPhotoUrl: v.optional(v.string()),
+  /** Every photo of the days in `entries`, oldest first. */
+  photoUrls: v.optional(v.array(v.string())),
 });
 export type FeedItem = Infer<typeof feedItemV>;
