@@ -113,6 +113,9 @@ export function rankSongs(
   exclude: ReadonlySet<number>,
 ): Candidate[] {
   const { weights, timeOfDayBonus } = TUNING;
+  // On a run the beat should land on the footfall: half-time songs give up a little.
+  const running = target.bpm !== null && target.bpm >= TUNING.paceMinSpm.run;
+  const halfTime = running && target.bpm !== null ? bpmBands(target.bpm, TUNING.bpmTolerance * TUNING.bpmWidenFactor)[1] : null;
   const sceneNorm = sceneVector ? norm(sceneVector) : 0;
   const seen = new Set<number>();
   const ranked: Candidate[] = [];
@@ -125,7 +128,8 @@ export function rankSongs(
       similarity * weights.similarity +
       closeness(song.energy, target.energy) * weights.energy +
       closeness(song.valence, target.valence) * weights.valence +
-      (song.timeOfDay.includes(target.timeOfDay) ? timeOfDayBonus : 0);
+      (song.timeOfDay.includes(target.timeOfDay) ? timeOfDayBonus : 0) -
+      (halfTime && song.bpm >= halfTime.min && song.bpm <= halfTime.max ? TUNING.halfTimeRunPenalty : 0);
     ranked.push({
       deezerId: song.deezerId,
       title: song.title,

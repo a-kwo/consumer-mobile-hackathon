@@ -46,7 +46,8 @@ export const TUNING = {
     nature: { energy: 0, valence: 0.05 },
     indoors: { energy: -0.05, valence: 0 },
     transit: { energy: -0.03, valence: -0.02 },
-    gym: { energy: 0.1, valence: 0.03 },
+    // Large on purpose: standing still at the gym is lifting, not resting.
+    gym: { energy: 0.5, valence: 0.03 },
   },
 
   /** A nudge shifts energy by this much, for this many picks. */
@@ -59,7 +60,7 @@ export const TUNING = {
   /** Never repeat any of the last N songs played on a device. */
   recentExclude: 20,
   /** Final score = similarity * w.similarity + energy closeness * w.energy + valence closeness * w.valence. */
-  weights: { similarity: 0.5, energy: 0.3, valence: 0.2 },
+  weights: { similarity: 0.45, energy: 0.35, valence: 0.2 },
   /** Pick at random from the top K, so repeat walks do not sound identical. */
   topK: 5,
   /** Vector search pool size when there is no BPM filter (Convex maximum is 256). */
@@ -103,7 +104,9 @@ export const TUNING = {
    * The random pick only draws from top-K songs scoring within this much of the best,
    * so a thin pool never trades a good fit for variety. Set to 1 to draw from the whole top K.
    */
-  topKScoreMargin: 0.1,
+  topKScoreMargin: 0.06,
+  /** Taken off the score of a half-time match when the user is running, so true-tempo songs win ties. */
+  halfTimeRunPenalty: 0.03,
   /** Added to the score when the song's `timeOfDay` labels include the scene's time of day. */
   timeOfDayBonus: 0.04,
   /** Too few BPM matches: multiply `bpmTolerance` by this and read again, before the vector pool. */

@@ -7,6 +7,11 @@ acoustic, demo...) are the same: the rules of convex/lib/preview.ts. Among accep
 canonical studio recording is preferred (closest duration to the Deezer track, not a clean edit,
 not a compilation). Songs with no match that has a preview are dropped: they cannot play.
 
+The store's search sometimes hides the original behind covers (Radiohead's "Creep", "Killing In
+The Name"). A song the search misses gets a second, exact attempt: the album is looked up by the
+UPC Deezer lists for it (https://itunes.apple.com/lookup?upc=...&entity=song) and the track is
+picked from that release by title and length.
+
 Apple allows roughly 20 calls a minute per IP, so this is slow (about 3 seconds per song). Songs
 most likely to survive go first: labeled, then analysed, then by popularity.
 
@@ -24,6 +29,7 @@ import unicodedata
 from common import USER_AGENT, SharedRateLimiter, cache_get, cache_put, connect, die, log
 
 SEARCH_URL = "https://itunes.apple.com/search"
+LOOKUP_URL = "https://itunes.apple.com/lookup"
 CALLS_PER_MINUTE = 19.0
 RESULT_LIMIT = 10
 
@@ -64,7 +70,16 @@ def search_words(text: str) -> str:
 
 
 def search(session, limiter: SharedRateLimiter, conn, term: str) -> dict:
-    key = f"itunes:search:{RESULT_LIMIT}:{term}"
+    return fetch(session, limiter, conn, f"itunes:search:{RESULT_LIMIT}:{term}", SEARCH_URL,
+                 {"term": term, "entity": "song", "limit": RESULT_LIMIT})
+
+
+def lookup_album(session, limiter: SharedRateLimiter, conn, upc: str) -> dict:
+    return fetch(session, limiter, conn, f"itunes:upc:{upc}", LOOKUP_URL, {"upc": upc, "entity": "song"})
+
+
+def fetch(session, limiter: SharedRateLimiter, conn, key: str, url: str, params: dict) -> dict:
+    """One rate-limited, cached iTunes call. Backs off on 403 and 429."""
     cached = cache_get(conn, key)
     if cached is not None:
         return cached
@@ -73,9 +88,7 @@ def search(session, limiter: SharedRateLimiter, conn, term: str) -> dict:
     for attempt in range(7):
         limiter.wait()
         try:
-            response = session.get(
-                SEARCH_URL, params={"term": term, "entity": "song", "limit": RESULT_LIMIT}, timeout=25
-            )
+            response = session.get(url, params=params, timeout=25)
         except requests.RequestException:
             time.sleep(10 * (attempt + 1))
             continue
@@ -131,6 +144,43 @@ def best_match(row, results: list[dict]) -> tuple[dict | None, bool]:
     return accepted[0][1], True
 
 
+def album_match(row, results: list[dict]) -> dict | None:
+    """The track on the same release (found by UPC): same title and version, closest length."""
+    want_title = normalize_for_match(row["title"])
+    want_version = version_words(row["title"])
+    accepted = []
+    for position, result in enumerate(results):
+        if not isinstance(result, dict) or result.get("wrapperType") != "track" or not result.get("trackId"):
+            continue
+        title, preview = result.get("trackName"), result.get("previewUrl")
+        if not isinstance(title, str) or not (isinstance(preview, str) and preview.startswith("http")):
+            continue
+        if version_words(title) != want_version:
+            continue
+        got_title = normalize_for_match(title)
+        seconds = (result.get("trackTimeMillis") or 0) / 1000.0
+        gap = abs(seconds - (row["duration"] or 0)) if seconds and row["duration"] else 99.0
+        same = got_title == want_title
+        # Classical titles are written differently per store: accept one inside the other
+        # when the length agrees to the second.
+        inside = len(want_title) >= 6 and len(got_title) >= 6 and (want_title in got_title or got_title in want_title)
+        if (same and gap <= 8) or (inside and gap <= 2.5):
+            accepted.append(((not same, round(gap, 1), position), result))
+    if not accepted:
+        return None
+    accepted.sort(key=lambda entry: entry[0])
+    return accepted[0][1]
+
+
+def album_upc(conn, row) -> str | None:
+    """The album's UPC, from the Deezer album response enrich.py cached."""
+    if not row["album_id"]:
+        return None
+    album = cache_get(conn, f"deezer:/album/{row['album_id']}?")
+    upc = (album or {}).get("upc")
+    return str(upc) if upc else None
+
+
 def next_row(conn):
     """The unchecked song most likely to survive: labeled ones first, brand-new releases last."""
     return conn.execute(
@@ -142,10 +192,10 @@ def next_row(conn):
 
 
 def next_miss(conn):
-    """A song whose first search found nothing: it gets one more search, with the album name."""
+    """A song the search did not find: it gets one exact attempt through its album's UPC."""
     return conn.execute(
         """SELECT * FROM tracks
-           WHERE selected = 1 AND itunes_checked = 1 AND drop_reason = 'itunes:no match' AND album IS NOT NULL
+           WHERE selected = 1 AND itunes_checked = 1 AND drop_reason IN ('itunes:no match', 'itunes:no preview')
            ORDER BY rank DESC LIMIT 1"""
     ).fetchone()
 
@@ -163,12 +213,13 @@ def main() -> None:
     limiter = SharedRateLimiter("itunes", CALLS_PER_MINUTE / 60.0)
     matched = dropped = checked = 0
 
+    recovered = 0
     while args.limit is None or checked < args.limit:
-        row = next_row(conn)
-        second_try = False
+        # Misses first: there are few, and they are often very well-known songs.
+        row = next_miss(conn)
+        second_try = row is not None
         if row is None:
-            row = next_miss(conn)
-            second_try = row is not None
+            row = next_row(conn)
         if row is None:
             waiting = conn.execute(
                 "SELECT COUNT(*) FROM tracks WHERE selected = 1 AND enriched = 0 AND drop_reason IS NULL"
@@ -177,48 +228,51 @@ def main() -> None:
                 time.sleep(20)
                 continue
             break
-        want_version = version_words(row["title"])
-        if want_version:
-            term = search_words(f"{row['artist']} {row['title']}")
-        else:
-            term = f"{normalize_for_match(row['artist'])} {normalize_for_match(row['title'])}"
+
+        best = None
         if second_try:
-            term = f"{term} {normalize_for_match(row['album'])}".strip()
-        data = search(session, limiter, conn, term)
-        results = data.get("results") if isinstance(data, dict) else None
-        best, any_match = best_match(row, results or [])
-        if best is None:
-            reason = "itunes:no preview" if any_match else "itunes:no match"
-            if second_try:
+            upc = album_upc(conn, row)
+            if upc:
+                data = lookup_album(session, limiter, conn, upc)
+                best = album_match(row, (data.get("results") if isinstance(data, dict) else None) or [])
+            if best is None:
                 conn.execute("UPDATE tracks SET itunes_checked = 2 WHERE deezer_id = ?", (row["deezer_id"],))
+                conn.commit()
+                continue
+            conn.execute("UPDATE tracks SET drop_reason = NULL WHERE deezer_id = ?", (row["deezer_id"],))
+            dropped -= 1
+            recovered += 1
+        else:
+            if version_words(row["title"]):
+                term = search_words(f"{row['artist']} {row['title']}")
             else:
+                term = f"{normalize_for_match(row['artist'])} {normalize_for_match(row['title'])}"
+            data = search(session, limiter, conn, term)
+            best, any_match = best_match(row, (data.get("results") if isinstance(data, dict) else None) or [])
+            checked += 1
+            if best is None:
+                reason = "itunes:no preview" if any_match else "itunes:no match"
                 conn.execute(
                     "UPDATE tracks SET itunes_checked = 1, drop_reason = COALESCE(drop_reason, ?) WHERE deezer_id = ?",
                     (reason, row["deezer_id"]),
                 )
+                conn.commit()
                 dropped += 1
-        else:
-            if second_try:  # found on the second search: the song is back in the library
-                conn.execute("UPDATE tracks SET drop_reason = NULL WHERE deezer_id = ?", (row["deezer_id"],))
-                dropped -= 1
-            years = [
-                int(result["releaseDate"][:4]) for result in results
-                if isinstance(result, dict) and isinstance(result.get("releaseDate"), str)
-                and result.get("trackId") == best.get("trackId") and result["releaseDate"][:4].isdigit()
-            ]
-            conn.execute(
-                "UPDATE tracks SET itunes_checked = ?, itunes_track_id = ?, itunes_preview_url = ?, itunes_year = ? "
-                "WHERE deezer_id = ?",
-                (2 if second_try else 1, int(best["trackId"]), best["previewUrl"], years[0] if years else None,
-                 row["deezer_id"]),
-            )
-            matched += 1
-        conn.commit()
-        checked += 1
-        if checked % 50 == 0:
-            log(f"checked {checked}: matched {matched}, dropped {dropped}")
+                continue
 
-    log(f"checked {checked}: matched {matched}, dropped {dropped}")
+        release = best.get("releaseDate")
+        year = int(release[:4]) if isinstance(release, str) and release[:4].isdigit() else None
+        conn.execute(
+            "UPDATE tracks SET itunes_checked = ?, itunes_track_id = ?, itunes_preview_url = ?, itunes_year = ? "
+            "WHERE deezer_id = ?",
+            (2 if second_try else 1, int(best["trackId"]), best["previewUrl"], year, row["deezer_id"]),
+        )
+        conn.commit()
+        matched += 1
+        if (checked + recovered) % 50 == 0:
+            log(f"searched {checked}: matched {matched} ({recovered} through the album UPC), unmatched {dropped}")
+
+    log(f"searched {checked}: matched {matched} ({recovered} through the album UPC), unmatched {dropped}")
     left = conn.execute(
         "SELECT COUNT(*) FROM tracks WHERE selected = 1 AND drop_reason IS NULL AND itunes_checked = 0"
     ).fetchone()[0]

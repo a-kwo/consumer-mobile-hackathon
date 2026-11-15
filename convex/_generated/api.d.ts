@@ -9,7 +9,6 @@
  */
 
 import type * as crons from "../crons.js";
-import type * as devFixtures from "../devFixtures.js";
 import type * as feed from "../feed.js";
 import type * as health from "../health.js";
 import type * as lib_hash from "../lib/hash.js";
@@ -38,7 +37,6 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
-  devFixtures: typeof devFixtures;
   feed: typeof feed;
   health: typeof health;
   "lib/hash": typeof lib_hash;
