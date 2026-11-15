@@ -155,6 +155,8 @@ EXTRA_TRACK_COLUMNS = (
     ("itunes_track_id", "INTEGER"),
     ("itunes_preview_url", "TEXT"),
     ("itunes_year", "INTEGER"),
+    # 1 = the album lookup by UPC was tried, 2 = it was tried but the answer was cut short
+    ("itunes_upc_tried", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

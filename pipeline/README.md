@@ -23,7 +23,7 @@ Run from `pipeline/` with `.venv/bin/python`. Every script takes `--limit N` and
 | --- | --- | --- |
 | 1 | `seed.py` | Finds Deezer playlists for about 120 mood, scene, genre, decade and tempo phrases, plus charts. Keeps the phrases as crowd tags. Selects about 2,300 popular, deduplicated candidates, at most 4 per artist. |
 | 2 | `enrich.py` | Looks up each candidate on Deezer: ISRC, cover, BPM, release date, genre. Drops tracks with no preview. |
-| 2b | `itunes.py` | Finds the same recording in the iTunes Store, where the app's previews come from, and stores its track id. Drops songs with no match. Slow: Apple allows about 20 calls a minute. |
+| 2b | `itunes.py` | Finds the same recording in the iTunes Store, where the app's previews come from, and stores its track id. Drops songs with no match. Apple allows about 20 calls a minute: about 25 minutes for 2,000 songs. |
 | 3 | `analyze.py` | Downloads each Deezer preview, measures tempo and audio features, deletes the audio. `--report` prints agreement with Deezer's BPM. |
 | 4 | `label.py` | Labels songs with an LLM in batches of 20. `--dry-run` prints a prompt; `--self-test` checks parsing. Drops songs with confidence under 0.6. |
 | 5 | `embed.py` | Embeds the 840 scene keys and every labeled song with `BAAI/bge-small-en-v1.5`, locally. |
@@ -35,11 +35,11 @@ Typical full run:
 ```bash
 .venv/bin/python seed.py
 .venv/bin/python enrich.py
-.venv/bin/python itunes.py &        # slow, runs alongside the rest
 .venv/bin/python analyze.py
 .venv/bin/python label.py --limit 50   # check these before labeling everything
 .venv/bin/python label.py
-.venv/bin/python itunes.py             # finish the songs that were labeled meanwhile
+.venv/bin/python itunes.py             # after labeling, so only kept songs are looked up
+.venv/bin/python label.py              # labels songs itunes.py brought back, if any
 .venv/bin/python embed.py
 .venv/bin/python push.py
 .venv/bin/python report.py
@@ -70,11 +70,14 @@ the new songs.
   have a Deezer BPM. At export, calm songs are stored at the pulse a listener feels
   (`felt_bpm` in `common.py`): energy under 0.3 with a tempo over 100, or energy under 0.4 with
   a tempo over 140, is halved.
-- **iTunes match.** `itunes.py` follows the rules of `convex/lib/preview.ts`: the artist must
-  match, the base title must match, and version words (remix, live, acoustic...) must be the
-  same. A search result more than 8 seconds longer or shorter than the Deezer track is rejected
-  as another cut. A song the search misses is looked up exactly, through its album's UPC.
-  Only songs with a match are exported, each with its `itunesTrackId`.
+- **iTunes match.** `itunes.py` first looks up each song's album by the UPC Deezer lists for it
+  (`/lookup?upc=...&entity=song`, eight albums per call) and picks the track by title, version
+  and length: the exact release, about 80% of songs. The rest go through `/search`, with the
+  rules of `convex/lib/preview.ts`: the artist must match, the base title must match, and
+  version words (remix, live, acoustic...) must be the same. A search result more than 8
+  seconds longer or shorter than the Deezer track is rejected as another cut. Only songs with
+  a match are exported, each with its `itunesTrackId`. `--recheck-cache` re-reads cached
+  answers without any network call.
 - **Embeddings.** A song is embedded as `moods, scene tags, times of day`; a scene as its mood
   and tag hints from `shared/vocab.json` (weight 0.75) blended with its descriptive phrases
   (weight 0.25). Every vector has the mean embedding of the vocabulary words subtracted and is

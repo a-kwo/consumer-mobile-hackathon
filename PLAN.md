@@ -2,6 +2,16 @@
 
 Adapted on Nov 15, 2026 from `Score — Hackathon Build Plan.pdf`. The product scope is unchanged. What changed is the backend (Convex replaces FastAPI and SQLite), the repo layout, hosting, and how each change is verified (Revyl Proof of Changes on every pull request).
 
+## Status (Nov 15, end of prototype build)
+
+- **Built and running on iOS and Android cloud devices:** all four screens, the playback engine, the Convex backend, the share card and the replay bar.
+- **Library:** 1,929 labeled songs and 840 scene embeddings are in the dev deployment. Every song has an iTunes preview.
+- **Previews come from iTunes, not Deezer.** Deezer refuses requests from Convex's servers, so the pipeline matches each song to an iTunes track and the backend looks the preview up there. Deezer is still used offline for seeding, cover art and tempo analysis.
+- **Milestones 1 to 6, 8 and 9 are done** against the dev deployment; the production deployment in milestone 6 is not created yet.
+- **Milestone 7 (live sensors) is built but untested:** Revyl's devices are simulators, so the pedometer, location and permission prompts have never run on hardware.
+- **Milestone 10 (demo prep) is not started.**
+- **Foreground only:** locking the phone stops the music.
+
 ## Scope
 
 The demo build is a phone app that reads your pace, location, weather and time, and plays the existing song that best fits the moment. It logs every pick and turns the day into a shareable soundtrack.
