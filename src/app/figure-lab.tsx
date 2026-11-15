@@ -146,6 +146,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   row: {
+    alignSelf: 'stretch',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 24,
