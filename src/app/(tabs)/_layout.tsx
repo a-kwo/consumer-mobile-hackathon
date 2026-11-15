@@ -1,5 +1,6 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
+import { TabsReplayBar } from '@/components/replay';
 import { TabBarInsetProvider } from '@/components/ui';
 import { colors } from '@/theme';
 
@@ -53,6 +54,8 @@ export default function TabsLayout() {
           />
         </NativeTabs.Trigger>
       </NativeTabs>
+      {/* Floats above the tab bar on every tab while a replay plays; takes no touches otherwise. */}
+      <TabsReplayBar />
     </TabBarInsetProvider>
   );
 }

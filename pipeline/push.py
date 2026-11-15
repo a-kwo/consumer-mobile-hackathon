@@ -2,7 +2,11 @@
 
 Writes pipeline/out/scenes.jsonl and pipeline/out/songs.jsonl, validates every row against the
 `scenes` and `songs` table shapes (exact field names and types, no extra fields, optional fields
-omitted rather than null), and prints the import commands. It does not run them.
+omitted rather than null, no _id or _creationTime), and prints the import commands. It does not
+run them.
+
+Only songs with an iTunes match that has a preview are exported: the app plays iTunes previews,
+so a song without one cannot play. Mood order is kept as labeled (most defining first).
 
     python push.py                 # both files (songs only if any are labeled and embedded)
     python push.py --scenes-only
@@ -23,7 +27,7 @@ SONG_REQUIRED = {
     "energy": "unit", "valence": "unit", "tension": "unit", "social": "unit", "vocal": "unit",
     "confidence": "unit", "moods": "list", "scenes": "list", "timeOfDay": "list", "embedding": "vector",
 }
-SONG_OPTIONAL = {"isrc": "str", "album": "str"}
+SONG_OPTIONAL = {"isrc": "str", "album": "str", "itunesTrackId": "int"}
 SCENE_REQUIRED = {"key": "str", "text": "str", "embedding": "vector"}
 
 
@@ -135,12 +139,26 @@ def export_scenes(conn, vocab: dict) -> int:
     return count
 
 
+READY = (
+    "labeled = 1 AND drop_reason IS NULL AND labels IS NOT NULL AND embedding IS NOT NULL "
+    "AND bpm IS NOT NULL AND confidence >= ?"
+)
+
+
+def library_records(conn, min_confidence: float = 0.6):
+    """The songs that make up the library: labeled, embedded, and playable through iTunes."""
+    return conn.execute(
+        f"SELECT * FROM tracks WHERE {READY} AND itunes_track_id IS NOT NULL ORDER BY deezer_id", (min_confidence,)
+    ).fetchall()
+
+
 def export_songs(conn, vocab: dict, limit: int | None, min_confidence: float) -> int:
-    query = (
-        "SELECT * FROM tracks WHERE labeled = 1 AND drop_reason IS NULL AND labels IS NOT NULL "
-        "AND embedding IS NOT NULL AND bpm IS NOT NULL AND confidence >= ? ORDER BY deezer_id"
-    )
-    records = conn.execute(query, (min_confidence,)).fetchall()
+    waiting = conn.execute(
+        f"SELECT COUNT(*) FROM tracks WHERE {READY} AND itunes_checked = 0", (min_confidence,)
+    ).fetchone()[0]
+    if waiting:
+        log(f"{waiting} labeled songs are not exported yet: their iTunes check has not run (itunes.py)")
+    records = library_records(conn, min_confidence)
     if limit is not None:
         records = records[:limit]
     rows = []
@@ -168,6 +186,8 @@ def export_songs(conn, vocab: dict, limit: int | None, min_confidence: float) ->
             row["isrc"] = record["isrc"]
         if record["album"]:
             row["album"] = record["album"]
+        if record["itunes_track_id"]:
+            row["itunesTrackId"] = int(record["itunes_track_id"])
         rows.append(row)
     if not rows:
         log("no labeled and embedded songs yet: songs.jsonl not written")

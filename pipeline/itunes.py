@@ -132,10 +132,21 @@ def best_match(row, results: list[dict]) -> tuple[dict | None, bool]:
 
 
 def next_row(conn):
+    """The unchecked song most likely to survive: labeled ones first, brand-new releases last."""
     return conn.execute(
         """SELECT * FROM tracks
            WHERE selected = 1 AND enriched = 1 AND drop_reason IS NULL AND itunes_checked = 0
-           ORDER BY labeled DESC, analyzed DESC, rank DESC LIMIT 1"""
+           ORDER BY labeled DESC, (release_date IS NULL OR release_date < '2025-07-01') DESC,
+                    analyzed DESC, rank DESC LIMIT 1"""
+    ).fetchone()
+
+
+def next_miss(conn):
+    """A song whose first search found nothing: it gets one more search, with the album name."""
+    return conn.execute(
+        """SELECT * FROM tracks
+           WHERE selected = 1 AND itunes_checked = 1 AND drop_reason = 'itunes:no match' AND album IS NOT NULL
+           ORDER BY rank DESC LIMIT 1"""
     ).fetchone()
 
 
@@ -154,6 +165,10 @@ def main() -> None:
 
     while args.limit is None or checked < args.limit:
         row = next_row(conn)
+        second_try = False
+        if row is None:
+            row = next_miss(conn)
+            second_try = row is not None
         if row is None:
             waiting = conn.execute(
                 "SELECT COUNT(*) FROM tracks WHERE selected = 1 AND enriched = 0 AND drop_reason IS NULL"
@@ -167,26 +182,35 @@ def main() -> None:
             term = search_words(f"{row['artist']} {row['title']}")
         else:
             term = f"{normalize_for_match(row['artist'])} {normalize_for_match(row['title'])}"
+        if second_try:
+            term = f"{term} {normalize_for_match(row['album'])}".strip()
         data = search(session, limiter, conn, term)
         results = data.get("results") if isinstance(data, dict) else None
         best, any_match = best_match(row, results or [])
         if best is None:
             reason = "itunes:no preview" if any_match else "itunes:no match"
-            conn.execute(
-                "UPDATE tracks SET itunes_checked = 1, drop_reason = COALESCE(drop_reason, ?) WHERE deezer_id = ?",
-                (reason, row["deezer_id"]),
-            )
-            dropped += 1
+            if second_try:
+                conn.execute("UPDATE tracks SET itunes_checked = 2 WHERE deezer_id = ?", (row["deezer_id"],))
+            else:
+                conn.execute(
+                    "UPDATE tracks SET itunes_checked = 1, drop_reason = COALESCE(drop_reason, ?) WHERE deezer_id = ?",
+                    (reason, row["deezer_id"]),
+                )
+                dropped += 1
         else:
+            if second_try:  # found on the second search: the song is back in the library
+                conn.execute("UPDATE tracks SET drop_reason = NULL WHERE deezer_id = ?", (row["deezer_id"],))
+                dropped -= 1
             years = [
                 int(result["releaseDate"][:4]) for result in results
                 if isinstance(result, dict) and isinstance(result.get("releaseDate"), str)
                 and result.get("trackId") == best.get("trackId") and result["releaseDate"][:4].isdigit()
             ]
             conn.execute(
-                "UPDATE tracks SET itunes_checked = 1, itunes_track_id = ?, itunes_preview_url = ?, itunes_year = ? "
+                "UPDATE tracks SET itunes_checked = ?, itunes_track_id = ?, itunes_preview_url = ?, itunes_year = ? "
                 "WHERE deezer_id = ?",
-                (int(best["trackId"]), best["previewUrl"], years[0] if years else None, row["deezer_id"]),
+                (2 if second_try else 1, int(best["trackId"]), best["previewUrl"], years[0] if years else None,
+                 row["deezer_id"]),
             )
             matched += 1
         conn.commit()

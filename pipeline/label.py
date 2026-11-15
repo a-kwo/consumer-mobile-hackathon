@@ -86,7 +86,7 @@ social (0 to 1): who the song is for.
 vocal (0 to 1): the role of the voice.
   0.0 instrumental; 0.3 sparse, wordless or sampled vocals; 0.6 vocals share the space with the band; 1.0 voice-forward (rap, a cappella, a belted lead)
 
-moods: 2 to 4 terms from the mood list, the best fit first.
+moods: 2 to 4 terms from the mood list, ordered from most to least defining. The order matters: the app shows the first two moods to the listener as the reason the song was picked, so they must be the two words that best capture the song.
 scenes: 2 to 4 terms from the scene list: moments this song would soundtrack well, the best fit first.
 timeOfDay: 1 to 3 of morning, afternoon, evening, night: when the song fits best.
 releaseYear: the year the recording was first released, from your own knowledge (use the listed year if you do not know).
@@ -99,6 +99,7 @@ Calibration:
 - Use the whole range of every scale, to two decimals. A varied batch should contain energy and valence values from near 0.1 to above 0.9. Do not bunch values between 0.5 and 0.7.
 - Judge each song on its own. A sad song can be energetic (high energy, low valence); a calm song can be happy (low energy, high valence).
 - Energy describes the sound, not the tempo: a fast fingerpicked folk song is still low energy.
+- timeOfDay: think about when a listener would actually reach for the song, and use the whole day. Fresh, bright, optimistic or gently waking music fits the morning; busy, sunny, upbeat daytime music fits the afternoon; warm, social or winding-down music fits the evening; dark, intimate, nocturnal or late-party music fits the night. Do not default to evening and night.
 
 Allowed moods: {", ".join(vocab["moods"])}
 Allowed scenes: {", ".join(vocab["sceneTags"])}
@@ -207,7 +208,7 @@ def validate_label(raw: dict, vocab: dict) -> tuple[dict | None, str | None]:
     if not label["timeOfDay"]:
         return None, "no valid time of day"
     year = raw.get("releaseYear")
-    label["releaseYear"] = int(year) if isinstance(year, (int, float)) and 1900 <= year <= 2027 else None
+    label["releaseYear"] = int(year) if isinstance(year, (int, float)) and 1500 <= year <= 2027 else None
     label["seasonal"] = raw.get("seasonal") is True
     return label, None
 

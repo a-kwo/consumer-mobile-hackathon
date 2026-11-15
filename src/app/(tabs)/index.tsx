@@ -1,20 +1,28 @@
-import { router } from 'expo-router';
+import { Screen } from '@/components/ui';
+import { NowIdleView } from '@/components/now/now-idle-view';
+import { NowPlayingView } from '@/components/now/now-playing-view';
+import { useReplay, useSensing, useSession } from '@/lib/score';
 
-import { EmptyState, Screen } from '@/components/ui';
-
-/** Placeholder for the Now screen. Replace the whole file. */
+/**
+ * Now: the title sequence. Idle, it invites a start and previews the scene;
+ * once a session runs it shows the cue that is playing, the scene it was
+ * picked for and why, over a wash of the cover's colour.
+ */
 export default function NowScreen() {
+  const session = useSession();
+  const sensing = useSensing();
+  const replay = useReplay();
+
+  const active = session.status !== 'idle';
+  const coverUrl = active ? session.track?.coverUrl : replay.item?.coverUrl;
+
   return (
-    <Screen testID="now-screen">
-      <EmptyState
-        actionIcon="color-palette-outline"
-        actionLabel="Open the design kit"
-        icon="pulse-outline"
-        message="The cue that is playing, the scene it was picked for and why, with start, stop, skip, calmer and more energy."
-        onAction={() => router.push('/kit')}
-        overline="Now scoring"
-        title="The score starts here"
-      />
+    <Screen coverUrl={coverUrl ?? null} testID="now-screen">
+      {active ? (
+        <NowPlayingView sensing={sensing} session={session} />
+      ) : (
+        <NowIdleView replay={replay} sensing={sensing} session={session} />
+      )}
     </Screen>
   );
 }

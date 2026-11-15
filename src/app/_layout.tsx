@@ -56,6 +56,11 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: colors.bg },
               }}>
               <Stack.Screen name="(tabs)" />
+              {/* A friend's soundtrack, pushed from the Friends tab. */}
+              <Stack.Screen name="friend/[deviceId]" />
+              {/* The share card and the profile editor open as modals. */}
+              <Stack.Screen name="share" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="profile" options={{ presentation: 'modal' }} />
               {/* Hidden design-kit preview: consumermobilehackathon://kit */}
               <Stack.Screen name="kit" />
             </Stack>

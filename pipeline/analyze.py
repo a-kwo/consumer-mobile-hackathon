@@ -202,8 +202,11 @@ def process(deezer_id: int, url: str) -> dict:
 
 
 def final_bpm(deezer_bpm: float | None, tempo: float | None) -> tuple[float | None, str | None]:
+    """Deezer's BPM when present and plausible, else the measured tempo. Both are folded by
+    octaves into 60 to 185: Deezer lists some songs at double time (Back In Black at 190), and
+    the app counts half and double time as a match anyway."""
     if deezer_bpm and BPM_MIN <= deezer_bpm <= BPM_MAX:
-        return round(float(deezer_bpm), 1), "deezer"
+        return round(fold_tempo(float(deezer_bpm)), 1), "deezer"
     if tempo is not None and math.isfinite(tempo) and tempo > 0:
         folded = fold_tempo(tempo)
         if math.isfinite(folded):

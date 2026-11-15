@@ -10,6 +10,7 @@ build:
         development:
             ios:
                 app_id: "f97a85c8-64db-413b-95c2-3ac0ac778da1"
+                image: ios-macos-26-xcode-27.1
                 setup_commands:
                     - npm install
                     - if [ ! -d ios ]; then npx expo prebuild --platform ios --no-install; fi
@@ -26,6 +27,7 @@ build:
         preview:
             ios:
                 app_id: "051f1327-94be-4624-93a1-7c647289b5f7"
+                image: ios-macos-26-xcode-27.1
                 setup_commands:
                     - npm install
                     - if [ ! -d ios ]; then npx expo prebuild --platform ios --no-install; fi
