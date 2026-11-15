@@ -222,6 +222,10 @@ export function reasonFor(candidate: Candidate, scene: Scene, nudge?: Nudge): st
   if (nudge === 'calmer' || nudge === 'more_energy') {
     head = nudge === 'calmer' ? 'you asked for calmer' : 'you asked for more energy';
     tail = `${bpm} BPM`;
+  } else if (scene.occasionLine) {
+    // The occasion is the reason; the tempo is the fact to check it against.
+    head = scene.occasionLine;
+    tail = `${bpm} BPM`;
   } else {
     const exact = bpmRelationFor(candidate.bpm, scene.bpm, TUNING.bpmTolerance);
     const near = exact ?? bpmRelationFor(candidate.bpm, scene.bpm, TUNING.bpmTolerance * TUNING.bpmWidenFactor);

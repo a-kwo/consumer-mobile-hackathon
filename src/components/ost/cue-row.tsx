@@ -1,9 +1,10 @@
+import { Image } from 'expo-image';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText, CoverArt, EqualizerBars, IconButton } from '@/components/ui';
 import { albumInk, INK_MUTED } from '@/lib/album-ink';
 import type { OstEntry } from '@/lib/score';
-import { colors, sizes, space } from '@/theme';
+import { colors, motion, radius, sizes, space } from '@/theme';
 
 export type CueRowState = 'idle' | 'loading' | 'playing';
 
@@ -24,7 +25,8 @@ export const CUE_TEXT_INSET = sizes.thumb + space.md;
 
 /**
  * One track of a soundtrack: its cover, the generated title in Fraunces,
- * "Song · Artist" underneath and a replay button. The row itself is not
+ * "Song · Artist" underneath, the photo taken during it when there is one,
+ * and a replay button. The row itself is not
  * pressable; the button is. While the replay is on this row the button
  * becomes Stop and the equalizer shows beside it in the song's album ink.
  */
@@ -42,6 +44,19 @@ export function CueRow({ entry, index, state, onPress, testID }: CueRowProps) {
           {entry.songTitle} · {entry.artist}
         </AppText>
       </View>
+      {entry.photoUrl ? (
+        <Image
+          accessibilityLabel="Photo taken during this track"
+          accessible
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          recyclingKey={entry.playId}
+          source={entry.photoUrl}
+          style={styles.photo}
+          testID={`${testID}-photo`}
+          transition={motion.duration.base}
+        />
+      ) : null}
       {state === 'loading' ? (
         <ActivityIndicator accessibilityLabel="Loading" color={colors.inkMuted} size="small" />
       ) : state === 'playing' ? (
@@ -74,5 +89,11 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     gap: space.xxs,
+  },
+  photo: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.thumb,
+    backgroundColor: colors.paperSunk,
   },
 });

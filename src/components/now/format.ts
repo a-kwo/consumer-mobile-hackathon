@@ -4,8 +4,9 @@
  * the engine's values.
  */
 import type { IconName } from '@/components/ui';
-import type { PlayContext, Scene, Setting, Weather } from '@/lib/score';
+import type { Occasion, PlaceKind, PlayContext, Scene, Setting, Weather } from '@/lib/score';
 
+import { occasionLabel } from '../../../convex/lib/occasion';
 import { normalizeHour, paceFor, timeOfDayFor } from '../../../convex/lib/scene';
 
 export const WEATHER_META: Record<Weather, { label: string; icon: IconName }> = {
@@ -25,6 +26,24 @@ export const SETTING_META: Record<Setting, { label: string; icon: IconName }> = 
   indoors: { label: 'Indoors', icon: 'home-outline' },
   transit: { label: 'Transit', icon: 'train-outline' },
   gym: { label: 'Gym', icon: 'barbell-outline' },
+};
+
+export const OCCASION_META: Record<Occasion, { label: string; icon: IconName }> = {
+  game: { label: occasionLabel('game'), icon: 'trophy-outline' },
+  workout: { label: occasionLabel('workout'), icon: 'barbell-outline' },
+  focus: { label: occasionLabel('focus'), icon: 'glasses-outline' },
+  party: { label: occasionLabel('party'), icon: 'sparkles-outline' },
+  travel: { label: occasionLabel('travel'), icon: 'airplane-outline' },
+  wind_down: { label: occasionLabel('wind_down'), icon: 'bed-outline' },
+  date: { label: occasionLabel('date'), icon: 'heart-outline' },
+};
+
+export const PLACE_META: Record<PlaceKind, { label: string; icon: IconName }> = {
+  home: { label: 'Home', icon: 'home-outline' },
+  gym: { label: 'Gym', icon: 'barbell-outline' },
+  park: { label: 'Park', icon: 'leaf-outline' },
+  commute: { label: 'Commute', icon: 'train-outline' },
+  city: { label: 'City', icon: 'business-outline' },
 };
 
 const PACE_WORD = {
@@ -138,14 +157,25 @@ export function sceneSentence(scene: Pick<Scene, 'pace' | 'weather' | 'setting' 
   return night ? `${sentence}, late at night` : sentence;
 }
 /**
- * The meta line: "92 steps/min · Rain, 9°". The weather falls back to the one
- * the server resolved for the playing song when the context has none.
+ * The occasion in a few words for the meta line: "Game in 45 min" from the
+ * scene's "Game in 45 min · building up". Null when the scene has none.
  */
-export function metaLine(context: PlayContext, scene?: Scene | null): string {
+export function occasionShort(scene: Scene | null | undefined): string | null {
+  if (!scene?.occasion || !scene.occasionLine) return null;
+  return scene.occasionLine.split(' · ')[0];
+}
+
+/**
+ * The start of the meta line: "92 steps/min · Rain, 9°". The weather falls
+ * back to the one the server resolved for the playing song when the context
+ * has none. Pass `brief` to leave the weather out when the line has more to
+ * carry (an occasion and a nudge).
+ */
+export function metaLine(context: PlayContext, scene?: Scene | null, brief = false): string {
   const weather = context.weather !== 'any' ? context.weather : (scene?.weather ?? 'any');
   const temperatureC = context.temperatureC ?? scene?.temperatureC ?? null;
   const parts = [formatCadence(context.cadenceSpm)];
-  if (weather !== 'any') {
+  if (weather !== 'any' && !brief) {
     parts.push(
       typeof temperatureC === 'number'
         ? `${WEATHER_META[weather].label}, ${Math.round(temperatureC)}°`

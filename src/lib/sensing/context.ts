@@ -2,7 +2,7 @@
  * Turns simulator values or live readings into the `PlayContext` that is sent
  * with a pick and stored with a play. Pure.
  */
-import type { PlayContext, Setting } from '../../../convex/lib/validators';
+import type { Occasion, PlayContext, Setting } from '../../../convex/lib/validators';
 import type { LiveReadings, SimValues } from '../score/types';
 import type { Coordinates } from './geo';
 
@@ -27,7 +27,7 @@ export function localHourOf(date: Date): number {
   return Math.round(hour * 100) / 100;
 }
 
-export function simulatedContext(sim: SimValues): PlayContext {
+export function simulatedContext(sim: SimValues, occasion: Occasion | null = null): PlayContext {
   const context: PlayContext = {
     cadenceSpm: sim.cadenceSpm,
     weather: sim.weather,
@@ -37,17 +37,25 @@ export function simulatedContext(sim: SimValues): PlayContext {
   };
   const place = placeForSetting(sim.setting);
   if (place) context.placeName = place;
+  if (occasion) context.occasion = occasion;
   return context;
 }
 
-export function liveContext(live: LiveReadings, coordinates: Coordinates | null): PlayContext {
+/** `setting` is that of the known place the phone is in, or `any`. */
+export function liveContext(
+  live: LiveReadings,
+  coordinates: Coordinates | null,
+  setting: Setting = 'any',
+  occasion: Occasion | null = null,
+): PlayContext {
   const context: PlayContext = {
     cadenceSpm: live.cadenceSpm,
     weather: live.weather,
     localHour: live.localHour,
-    setting: 'any',
+    setting,
     simulated: false,
   };
+  if (occasion) context.occasion = occasion;
   if (live.speedMps !== null) context.speedMps = live.speedMps;
   if (live.temperatureC !== null) context.temperatureC = live.temperatureC;
   if (live.placeName !== null) context.placeName = live.placeName;

@@ -14,20 +14,25 @@
  * - `Location.watchPositionAsync` delivers foreground updates whose
  *   `coords.speed` is metres per second (negative on iOS when unknown).
  * - `Location.reverseGeocodeAsync` exists on iOS and Android only.
+ *
+ * The calendar (see ./calendar) is asked for only from `setCalendarEnabled(true)`
+ * and read only in live mode. Known places (see ./places) never leave the phone.
  */
 import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import { Platform } from 'react-native';
 
+import { type ActiveOccasion, type OccasionEvent, isOccasion, nextOccasion } from '../../../convex/lib/occasion';
 import { buildScene } from '../../../convex/lib/scene';
 import { SETTINGS, WEATHERS } from '../../../convex/lib/validators';
 import { TUNING } from '../../../convex/tuning';
 import { reportError, TimerBag } from '../score/async';
-import { CONFIG } from '../score/config';
+import { CONFIG, MESSAGES } from '../score/config';
 import { reuseIfEqual, Store } from '../score/store';
 import type {
   Backend,
+  CalendarAccess,
   LiveReadings,
   PermissionState,
   SensingMode,
@@ -35,8 +40,19 @@ import type {
   SimValues,
 } from '../score/types';
 import { CadenceWindow } from './cadence';
+import { calendarAccess, loadCalendarEnabled, readOccasionEvents, storeCalendarEnabled } from './calendar';
 import { liveContext, localHourOf, simulatedContext } from './context';
 import { type Coordinates, distanceMeters, placeNameFrom } from './geo';
+import {
+  PLACE_KINDS,
+  PLACE_SETTING,
+  type PlaceKind,
+  type SavedPlace,
+  loadPlaces,
+  placeAt,
+  storePlaces,
+  withPlace,
+} from './places';
 import { cadenceFromSpeed, isValidSpeed, smoothedSpeed, type SpeedSample } from './speed';
 
 type Removable = { remove(): void };
@@ -109,6 +125,21 @@ export class SensingController {
   private weatherAttemptAt = 0;
   private lastWeather: (Coordinates & { at: number }) | null = null;
 
+  // Calendar occasions.
+  private calendarEnabled = false;
+  private calendarAccess: CalendarAccess = 'unknown';
+  private calendarEvents: readonly OccasionEvent[] = [];
+  private calendarReadAt = 0;
+  private calendarReading = false;
+  private occasionNotice: string | null = null;
+  /** The backend refused the occasion arguments: picks go without them until the user tries again. */
+  private occasionRefused = false;
+
+  // Known places.
+  private places: readonly SavedPlace[] = [];
+  private savingPlace = false;
+  private placeNotice: string | null = null;
+
   constructor(private readonly deps: SensingDeps) {
     const now = new Date();
     this.liveAvailable = !isWeb() && Device.isDevice;
@@ -118,6 +149,8 @@ export class SensingController {
       localHour: quarterHourOf(now),
       weather: CONFIG.simulator.weather,
       setting: CONFIG.simulator.setting,
+      occasion: null,
+      minutesUntil: CONFIG.simulator.minutesUntil,
     };
     this.live = {
       cadenceSpm: 0,
@@ -143,8 +176,10 @@ export class SensingController {
     this.userChoseMode = true;
     this.mode = mode;
     this.publish();
-    if (mode === 'live') void this.startLive();
-    else this.stopLive();
+    if (mode === 'live') {
+      void this.startLive();
+      this.maybeReadCalendar(true);
+    } else this.stopLive();
   };
 
   readonly setSim = (patch: Partial<SimValues>): void => {
@@ -163,9 +198,53 @@ export class SensingController {
     if (patch.setting !== undefined && SETTINGS.includes(patch.setting)) {
       next.setting = patch.setting;
     }
+    const setsEvent = patch.occasion !== undefined || patch.minutesUntil !== undefined;
+    if (patch.occasion === null || isOccasion(patch.occasion)) next.occasion = patch.occasion;
+    if (typeof patch.minutesUntil === 'number' && Number.isFinite(patch.minutesUntil)) {
+      next.minutesUntil = clamp(Math.round(patch.minutesUntil), 0, TUNING.occasion.leadMinutes);
+    }
+    // Choosing an event again is a fresh try at a backend that refused the last one.
+    if (setsEvent) this.forgetOccasionRefusal();
     this.sim = reuseIfEqual(this.sim, next);
     this.publish();
   };
+
+  /**
+   * Turns reading the device calendar on or off. Turning it on asks for calendar
+   * access (the first time); when that is refused the app carries on as before.
+   */
+  readonly setCalendarEnabled = (enabled: boolean): void => {
+    void this.switchCalendar(enabled === true);
+  };
+
+  /** Tags where the phone is right now as a known place. Asks for location access if needed. */
+  readonly savePlace = (kind: PlaceKind): void => {
+    if (!PLACE_KINDS.includes(kind)) return;
+    void this.tagPlace(kind);
+  };
+
+  readonly removePlace = (id: string): void => {
+    const remaining = this.places.filter((place) => place.id !== id);
+    if (remaining.length === this.places.length) return;
+    this.places = remaining;
+    void storePlaces(remaining);
+    this.publish();
+  };
+
+  /** The backend would not take an occasion: picks go without one, and the user is told. */
+  noteOccasionRefused(): void {
+    this.occasionRefused = true;
+    this.occasionNotice = MESSAGES.occasionUnsupported;
+    this.publish();
+  }
+
+  /** A new session, or a new choice of event, tries the occasion again. */
+  forgetOccasionRefusal(): void {
+    if (!this.occasionRefused) return;
+    this.occasionRefused = false;
+    if (this.occasionNotice === MESSAGES.occasionUnsupported) this.occasionNotice = null;
+    this.publish();
+  }
 
   /** The session tells sensing about the nudge it carries, for the scene preview. */
   setEnergyBias(bias: number): void {
@@ -181,6 +260,7 @@ export class SensingController {
     this.refreshClock();
     this.clockTimer = setInterval(this.refreshClock, CONFIG.sensing.clockMs);
     void this.probe();
+    void this.restore();
   }
 
   unmount(): void {
@@ -204,6 +284,7 @@ export class SensingController {
   resume(): void {
     this.appActive = true;
     this.refreshClock();
+    this.maybeReadCalendar(true);
     // A start that is waiting on a permission prompt turns the sensors on itself.
     if (this.wanted && !this.starting) {
       this.startSensors().catch((error: unknown) => reportError('sensors', error));
@@ -233,10 +314,21 @@ export class SensingController {
   // ---------------------------------------------------------------- snapshot
 
   private buildSnapshot(previous: SensingSnapshot | null): SensingSnapshot {
+    const now = Date.now();
+    let occasion = this.activeOccasion(now);
+    // A position is trusted while the sensors run, and for a while after a place was tagged.
+    const located =
+      this.running || now - this.coordinatesAt <= CONFIG.sensing.location.lastKnownMaxAgeMs;
+    const herePlace = located ? placeAt(this.places, this.coordinates) : null;
     let context =
       this.mode === 'simulated'
-        ? simulatedContext(this.sim)
-        : liveContext(this.live, this.coordinates);
+        ? simulatedContext(this.sim, occasion?.id ?? null)
+        : liveContext(
+            this.live,
+            this.coordinates,
+            herePlace ? PLACE_SETTING[herePlace.kind] : 'any',
+            occasion?.id ?? null,
+          );
     let scene = buildScene({
       cadenceSpm: context.cadenceSpm,
       localHour: context.localHour,
@@ -244,10 +336,13 @@ export class SensingController {
       setting: context.setting,
       energyBias: this.energyBias,
       temperatureC: context.temperatureC ?? null,
+      occasion: occasion?.id,
+      minutesUntil: occasion?.minutesUntil,
     });
     if (previous) {
       context = reuseIfEqual(previous.context, context);
       scene = reuseIfEqual(previous.scene, scene);
+      if (occasion && previous.occasion) occasion = reuseIfEqual(previous.occasion, occasion);
     }
     return {
       mode: this.mode,
@@ -257,7 +352,27 @@ export class SensingController {
       live: this.live,
       context,
       scene,
+      occasion,
+      calendarEnabled: this.calendarEnabled,
+      calendarAccess: this.calendarAccess,
+      occasionNotice: this.occasionNotice,
+      places: this.places,
+      herePlace,
+      isSavingPlace: this.savingPlace,
+      placeNotice: this.placeNotice,
     };
+  }
+
+  /** The simulator's event in simulated mode; the calendar's next one in live mode. */
+  private activeOccasion(now: number): ActiveOccasion | null {
+    if (this.occasionRefused) return null;
+    if (this.mode === 'simulated') {
+      const { occasion, minutesUntil } = this.sim;
+      if (!occasion) return null;
+      return { id: occasion, minutesUntil: minutesUntil ?? CONFIG.simulator.minutesUntil };
+    }
+    if (!this.calendarEnabled || this.calendarAccess !== 'granted') return null;
+    return nextOccasion(this.calendarEvents, now);
   }
 
   private publish(): void {
@@ -279,6 +394,7 @@ export class SensingController {
       if (!this.userSetSimHour) {
         this.sim = reuseIfEqual(this.sim, { ...this.sim, localHour: quarterHourOf(now) });
       }
+      this.maybeReadCalendar();
       this.publish();
     } catch (error) {
       reportError('clock', error);
@@ -316,6 +432,119 @@ export class SensingController {
       // Stays unknown (some browsers cannot say without asking).
     }
     this.publish();
+  }
+
+  /** Reads what the user saved on this phone: known places and the calendar switch. Shows no prompt. */
+  private async restore(): Promise<void> {
+    const epoch = this.probeEpoch;
+    const stale = () => !this.mounted || epoch !== this.probeEpoch;
+
+    const [places, calendarEnabled] = await Promise.all([loadPlaces(), loadCalendarEnabled()]);
+    if (stale()) return;
+    // A place tagged while storage was being read is newer than anything in it.
+    if (this.places.length === 0) this.places = places;
+    if (calendarEnabled && !this.calendarEnabled) {
+      const access = await calendarAccess(false);
+      if (stale()) return;
+      this.calendarAccess = access;
+      this.calendarEnabled = access === 'granted';
+    }
+    this.publish();
+    this.maybeReadCalendar(true);
+  }
+
+  // ---------------------------------------------------------------- calendar
+
+  private async switchCalendar(enabled: boolean): Promise<void> {
+    this.forgetOccasionRefusal();
+    if (!enabled) {
+      this.calendarEnabled = false;
+      this.calendarEvents = [];
+      this.occasionNotice = null;
+      void storeCalendarEnabled(false);
+      this.publish();
+      return;
+    }
+    const access = await calendarAccess(true);
+    this.calendarAccess = access;
+    this.calendarEnabled = access === 'granted';
+    if (access === 'granted') this.occasionNotice = null;
+    else this.occasionNotice = access === 'unavailable' ? MESSAGES.calendarUnavailable : MESSAGES.calendarDenied;
+    void storeCalendarEnabled(this.calendarEnabled);
+    this.publish();
+    this.maybeReadCalendar(true);
+  }
+
+  /**
+   * Reads the calendar when it is in use: switched on, allowed, live mode, app in
+   * front. Simulated mode never reads it. At most once per `calendarRefreshMs`
+   * unless forced.
+   */
+  private maybeReadCalendar(force = false): void {
+    if (!this.mounted || !this.appActive || this.mode !== 'live' || this.calendarReading) return;
+    if (!this.calendarEnabled || this.calendarAccess !== 'granted') return;
+    const now = Date.now();
+    if (!force && now - this.calendarReadAt < CONFIG.sensing.calendarRefreshMs) return;
+    this.calendarReading = true;
+    this.calendarReadAt = now;
+    readOccasionEvents(now)
+      .then((events) => {
+        this.calendarEvents = events;
+        if (this.occasionNotice === MESSAGES.calendarUnreadable) this.occasionNotice = null;
+      })
+      .catch(() => {
+        this.calendarEvents = [];
+        this.occasionNotice = MESSAGES.calendarUnreadable;
+      })
+      .finally(() => {
+        this.calendarReading = false;
+        if (this.mounted) this.publish();
+      });
+  }
+
+  // ---------------------------------------------------------------- known places
+
+  private async tagPlace(kind: PlaceKind): Promise<void> {
+    if (this.savingPlace) return;
+    this.savingPlace = true;
+    this.placeNotice = null;
+    this.publish();
+    const at = await this.locate();
+    this.savingPlace = false;
+    if (at) {
+      this.places = withPlace(this.places, kind, at, Date.now());
+      void storePlaces(this.places);
+    } else {
+      this.placeNotice = MESSAGES.placeNoFix;
+    }
+    this.publish();
+  }
+
+  /** Where the phone is now: the sensors' fix when they run, else a one-off position. Never rejects. */
+  private async locate(): Promise<Coordinates | null> {
+    if (this.running && this.coordinates) return this.coordinates;
+    try {
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (!permission.granted) permission = await Location.requestForegroundPermissionsAsync();
+      this.setPermissions({ location: permission.granted ? 'granted' : 'denied' });
+      if (!permission.granted) return null;
+      const fix = await this.timers
+        .withTimeout(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          CONFIG.sensing.placeFixTimeoutMs,
+        )
+        .catch(() =>
+          Location.getLastKnownPositionAsync({ maxAge: CONFIG.sensing.location.lastKnownMaxAgeMs }),
+        );
+      if (!fix || !Number.isFinite(fix.coords.latitude) || !Number.isFinite(fix.coords.longitude)) {
+        return null;
+      }
+      this.coordinates = { lat: fix.coords.latitude, lon: fix.coords.longitude };
+      this.coordinatesAt = Date.now();
+      return this.coordinates;
+    } catch {
+      return null;
+    }
   }
 
   private async checkPedometer(): Promise<boolean> {

@@ -1,4 +1,5 @@
 /** Builds what the session sends to `next.pick` and `plays.log`. Pure. */
+import type { ActiveOccasion } from '../../../convex/lib/occasion';
 import type { Nudge, PlayContext, Scene } from '../../../convex/lib/validators';
 import { CONFIG } from './config';
 import type { PickArgs } from './types';
@@ -12,13 +13,16 @@ export type PickInput = {
   energyBias: number;
   /** Songs the app already holds or could not play. */
   excludeDeezerIds: readonly number[];
+  /** The occasion steering this pick, when there is one. */
+  occasion?: ActiveOccasion | null;
 };
 
 /**
  * In simulated mode the simulator's weather and setting are sent and no
  * coordinates; in live mode the setting is `any` and coordinates are sent, so
  * the server looks the weather up itself. Optional fields are left out rather
- * than sent as undefined.
+ * than sent as undefined. Of an occasion only the id and the minutes until it
+ * starts are sent.
  */
 export function buildPickArgs(input: PickInput): PickArgs {
   const { context } = input;
@@ -36,6 +40,10 @@ export function buildPickArgs(input: PickInput): PickArgs {
       args.lat = context.lat;
       args.lon = context.lon;
     }
+  }
+  if (input.occasion) {
+    args.occasion = input.occasion.id;
+    args.minutesUntil = input.occasion.minutesUntil;
   }
   if (input.nudge) args.nudge = input.nudge;
   if (input.energyBias !== 0) args.energyBias = input.energyBias;
@@ -56,6 +64,14 @@ export function contextForPlay(context: PlayContext, scene: Scene): PlayContext 
     next.temperatureC = scene.temperatureC;
   }
   return next;
+}
+
+/** The context without its occasion, for a backend that does not know occasions yet. */
+export function withoutOccasion(context: PlayContext): PlayContext {
+  if (context.occasion === undefined) return context;
+  const plain: PlayContext = { ...context };
+  delete plain.occasion;
+  return plain;
 }
 
 /** How long to wait before the next attempt after `failures` consecutive failures. */

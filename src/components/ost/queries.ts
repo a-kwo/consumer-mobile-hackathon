@@ -1,7 +1,7 @@
 import { useQuery } from 'convex/react';
 
 import { api } from '../../../convex/_generated/api';
-import type { FeedItem, Ost } from '../../../convex/lib/validators';
+import type { FeedItem, Ost, OstPhoto } from '../../../convex/lib/validators';
 
 /**
  * A device's soundtrack for one local day, live. `undefined` while loading,
@@ -16,4 +16,4 @@ export function useFeed(deviceId: string | null): FeedItem[] | undefined {
   return useQuery(api.feed.list, deviceId ? { deviceId } : 'skip');
 }
 
-export type { FeedItem, Ost };
+export type { FeedItem, Ost, OstPhoto };

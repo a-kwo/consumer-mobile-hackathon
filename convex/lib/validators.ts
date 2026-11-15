@@ -11,6 +11,8 @@ export const WEATHERS = ['any', 'clear', 'cloudy', 'fog', 'rain', 'snow', 'storm
 export const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'night'] as const;
 export const SETTINGS = ['any', 'city', 'nature', 'indoors', 'transit', 'gym'] as const;
 export const NUDGES = ['calmer', 'more_energy', 'skip'] as const;
+/** What a calendar event can be recognised as. See lib/occasion.ts. */
+export const OCCASIONS = ['game', 'workout', 'focus', 'party', 'travel', 'wind_down', 'date'] as const;
 
 export const paceV = v.union(
   v.literal('still'),
@@ -43,12 +45,22 @@ export const settingV = v.union(
   v.literal('gym'),
 );
 export const nudgeV = v.union(v.literal('calmer'), v.literal('more_energy'), v.literal('skip'));
+export const occasionV = v.union(
+  v.literal('game'),
+  v.literal('workout'),
+  v.literal('focus'),
+  v.literal('party'),
+  v.literal('travel'),
+  v.literal('wind_down'),
+  v.literal('date'),
+);
 
 export type Pace = Infer<typeof paceV>;
 export type Weather = Infer<typeof weatherV>;
 export type TimeOfDay = Infer<typeof timeOfDayV>;
 export type Setting = Infer<typeof settingV>;
 export type Nudge = Infer<typeof nudgeV>;
+export type Occasion = Infer<typeof occasionV>;
 
 /** The moment, reduced to what matching needs. */
 export const sceneV = v.object({
@@ -68,6 +80,10 @@ export const sceneV = v.object({
   bpm: v.union(v.number(), v.null()),
   /** Outside temperature when the weather came from the weather API. */
   temperatureC: v.union(v.number(), v.null()),
+  /** The calendar occasion steering this scene. Absent when there is none. */
+  occasion: v.optional(occasionV),
+  /** Why the occasion matters right now, e.g. "Game in 45 min · building up". */
+  occasionLine: v.optional(v.string()),
 });
 export type Scene = Infer<typeof sceneV>;
 
@@ -104,6 +120,8 @@ export const playContextV = v.object({
   placeName: v.optional(v.string()),
   lat: v.optional(v.number()),
   lon: v.optional(v.number()),
+  /** The calendar occasion that steered the pick. Only the id: never the event's text. */
+  occasion: v.optional(occasionV),
 });
 export type PlayContext = Infer<typeof playContextV>;
 
@@ -132,8 +150,26 @@ export const ostEntryV = v.object({
   startedAt: v.number(),
   weather: weatherV,
   localHour: v.number(),
+  /** The photo taken during this cue, when there is one. */
+  photoUrl: v.optional(v.string()),
+  /** `ost:get` only, when the soundtrack hides its places: the title other people see. */
+  publicTitle: v.optional(v.string()),
 });
 export type OstEntry = Infer<typeof ostEntryV>;
+
+/** Who may see a soundtrack. No `osts` row means `friends`. `public` is reserved for the Everyone tab. */
+export const visibilityV = v.union(v.literal('private'), v.literal('friends'), v.literal('public'));
+export type Visibility = Infer<typeof visibilityV>;
+
+/** One photo of a soundtrack, as its owner sees it. */
+export const ostPhotoV = v.object({
+  photoId: v.id('photos'),
+  url: v.string(),
+  takenAt: v.number(),
+  /** The cue that was playing when it was taken. */
+  playId: v.optional(v.id('plays')),
+});
+export type OstPhoto = Infer<typeof ostPhotoV>;
 
 export const ostV = v.object({
   entries: v.array(ostEntryV),
@@ -141,6 +177,13 @@ export const ostV = v.object({
   topMoods: v.array(v.string()),
   /** One line summarising the day, e.g. "mostly reflective, a little hopeful". */
   summary: v.string(),
+  /** The owner's own title. Absent: show the date. */
+  title: v.optional(v.string()),
+  /** The three below are absent until the day has an `osts` row; read them as friends, false and none. */
+  visibility: v.optional(visibilityV),
+  hideLocations: v.optional(v.boolean()),
+  /** Oldest first. The first one is the soundtrack's lead image. */
+  photos: v.optional(v.array(ostPhotoV)),
 });
 export type Ost = Infer<typeof ostV>;
 
@@ -151,5 +194,11 @@ export const feedItemV = v.object({
   summary: v.string(),
   /** startedAt of the newest entry. */
   latestAt: v.number(),
+  /** The owner's title for the newest day in `entries`. */
+  title: v.optional(v.string()),
+  /** The lead image: the first photo of the newest day that has one. */
+  leadPhotoUrl: v.optional(v.string()),
+  /** Every photo of the days in `entries`, oldest first. */
+  photoUrls: v.optional(v.array(v.string())),
 });
 export type FeedItem = Infer<typeof feedItemV>;

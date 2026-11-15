@@ -20,6 +20,10 @@ export type ShareCardProps = {
   entries: readonly OstEntry[];
   /** Up to four cover URLs for the artwork. */
   covers: readonly string[];
+  /** The soundtrack's lead photo. When set it is the artwork, in place of the covers. */
+  photoUrl?: string | null;
+  /** The owner's title for the day. Absent: the date is the title. */
+  title?: string | null;
   topMoods: readonly string[];
   /** The profile's display name: "Scored for …". */
   displayName: string | null;
@@ -30,9 +34,10 @@ export type ShareCardProps = {
 };
 
 /**
- * The day as the liner notes of a record: warm paper, ink type, the cover,
- * the date as the title, who it was scored for, the first tracks, the moods
- * and the Score mark.
+ * The day as the liner notes of a record: warm paper, ink type, the artwork
+ * (the owner's photo, or the covers when there is none), the title, who it
+ * was scored for, the first tracks, the moods and the Score mark. When the
+ * soundtrack hides its places, the tracklist uses the titles other people see.
  *
  * Images here are React Native's own `Image`, not expo-image: a view capture
  * draws the card into a software canvas, which cannot draw the hardware
@@ -43,6 +48,8 @@ export function ShareCard({
   dayStart,
   entries,
   covers,
+  photoUrl,
+  title,
   topMoods,
   displayName,
   onImagesSettled,
@@ -54,7 +61,8 @@ export function ShareCard({
   const titles = entries.slice(0, MAX_TITLES);
   const more = entries.length - titles.length;
 
-  const imageCount = art.length;
+  // The images to wait for: the one photo, or the cover tiles.
+  const imageCount = photoUrl ? 1 : art.length;
   const settled = useRef(0);
   const onImageEnd = () => {
     settled.current += 1;
@@ -100,9 +108,25 @@ export function ShareCard({
       <View
         style={[
           styles.art,
-          { width: artSize, height: artSize, borderRadius: 6 * u, marginTop: 22 * u },
+          // A photo is set four by three, a little wider than the square of covers.
+          {
+            width: photoUrl ? 250 * u : artSize,
+            height: artSize,
+            borderRadius: 6 * u,
+            marginTop: 22 * u,
+          },
         ]}>
-        {art.length === 0 ? (
+        {photoUrl ? (
+          <Image
+            accessible={false}
+            onError={onImageEnd}
+            onLoad={onImageEnd}
+            resizeMode="cover"
+            source={{ uri: photoUrl }}
+            style={styles.tile}
+            testID="share-card-photo"
+          />
+        ) : art.length === 0 ? (
           <View style={styles.artEmpty}>
             <BrandMark color={colors.inkFaint} size={64 * u} />
           </View>
@@ -132,14 +156,19 @@ export function ShareCard({
           text(30, 36),
           { letterSpacing: -0.3 * u, marginTop: 20 * u },
         ]}>
-        {formatLongDate(dayStart)}
+        {title || formatLongDate(dayStart)}
       </AppText>
       <AppText
         allowFontScaling={false}
         numberOfLines={1}
         style={[styles.italic, text(15, 20), { marginTop: 2 * u }]}
         tone="muted">
-        {displayName ? `Scored for ${displayName}` : 'A day, scored'}
+        {[
+          displayName ? `Scored for ${displayName}` : 'A day, scored',
+          title ? formatLongDate(dayStart) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </AppText>
 
       <View style={[styles.rule, { marginTop: 14 * u, marginBottom: 12 * u }]} />
@@ -157,7 +186,7 @@ export function ShareCard({
               allowFontScaling={false}
               numberOfLines={1}
               style={[styles.serif, styles.trackTitle, text(14.5, 19)]}>
-              {entry.title}
+              {entry.publicTitle ?? entry.title}
             </AppText>
           </View>
         ))}

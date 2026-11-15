@@ -1,10 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
 import { mosaicCovers, sentenceCase, toReplayItems } from '@/components/ost/format';
+import { LeadPhoto } from '@/components/ost/lead-photo';
+import { PhotoStrip } from '@/components/ost/photo-strip';
 import { useFeed } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
@@ -39,6 +42,8 @@ export default function FriendScreen() {
   const insets = useScreenInsets();
   const replayInset = useReplayBarListInset();
   const barSpace = useReplayBarInset();
+  // A photo that will not load gives the cover back to the mosaic.
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
 
   const item = feed?.find((candidate) => candidate.profile.deviceId === friendId);
   const listId = `feed:${friendId}`;
@@ -76,6 +81,9 @@ export default function FriendScreen() {
 
   const { profile, entries } = item;
   const covers = mosaicCovers(entries);
+  const leadPhoto =
+    item.leadPhotoUrl && item.leadPhotoUrl !== failedPhoto ? item.leadPhotoUrl : null;
+  const photoUrls = item.photoUrls ?? [];
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
 
@@ -109,20 +117,48 @@ export default function FriendScreen() {
       </View>
 
       <View style={styles.album}>
-        <CoverMosaic
-          accessibilityLabel={`Cover of ${profile.displayName}'s soundtrack`}
-          size={sizes.soundtrackCover}
-          uris={covers}
-        />
+        {leadPhoto ? (
+          <LeadPhoto
+            accessibilityLabel={`Photo from ${profile.displayName}'s soundtrack`}
+            onError={() => setFailedPhoto(leadPhoto)}
+            testID="friend-lead-photo"
+            uri={leadPhoto}
+          />
+        ) : (
+          <CoverMosaic
+            accessibilityLabel={`Cover of ${profile.displayName}'s soundtrack`}
+            size={sizes.soundtrackCover}
+            uris={covers}
+          />
+        )}
         <View style={styles.albumText}>
-          <AppText accessibilityRole="header" numberOfLines={3} variant="screenTitle">
-            {profile.displayName}’s soundtrack
-          </AppText>
+          {item.title ? (
+            <>
+              <AppText
+                accessibilityRole="header"
+                numberOfLines={3}
+                testID="friend-title"
+                variant="screenTitle">
+                {item.title}
+              </AppText>
+              <AppText numberOfLines={1} variant="meta">
+                {profile.displayName}’s soundtrack
+              </AppText>
+            </>
+          ) : (
+            <AppText accessibilityRole="header" numberOfLines={3} variant="screenTitle">
+              {profile.displayName}’s soundtrack
+            </AppText>
+          )}
           {item.summary ? (
             <AppText variant="sceneLine">{sentenceCase(item.summary)}</AppText>
           ) : null}
         </View>
       </View>
+
+      {photoUrls.length > 1 ? (
+        <PhotoStrip photos={photoUrls.map((url) => ({ key: url, url }))} testID="friend-photo" />
+      ) : null}
 
       <PrimaryButton
         accessibilityLabel={

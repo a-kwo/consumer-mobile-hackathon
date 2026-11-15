@@ -10,13 +10,14 @@
  * Races: `run` is the generation counter. `start()` and every stop bump it, and
  * anything asynchronous that started under an older generation is ignored.
  */
+import type { ActiveOccasion } from '../../../convex/lib/occasion';
 import { buildScene } from '../../../convex/lib/scene';
 import type { Nudge, PlayContext, Scene, Track } from '../../../convex/lib/validators';
 import { TUNING } from '../../../convex/tuning';
 import type { DeckProgress } from '../audio/crossfader';
-import { TimerBag } from './async';
+import { TimeoutError, TimerBag } from './async';
 import { CONFIG, MESSAGES } from './config';
-import { buildPickArgs, contextForPlay, retryDelayMs } from './request';
+import { buildPickArgs, contextForPlay, retryDelayMs, withoutOccasion } from './request';
 import { Store } from './store';
 import {
   type FetchSignal,
@@ -70,6 +71,8 @@ export type SessionDeps = {
     startLive(): Promise<void>;
     stopLive(): void;
     setEnergyBias(bias: number): void;
+    noteOccasionRefused(): void;
+    forgetOccasionRefusal(): void;
   };
   identity: {
     getDeviceId(): string | null;
@@ -112,7 +115,12 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
   // Sharp-change detection.
   private divergedSince: number | null = null;
   private lastTickAt = 0;
-  private targetFor: { context: PlayContext; bias: number; energy: number } | null = null;
+  private targetFor: {
+    context: PlayContext;
+    occasion: ActiveOccasion | null;
+    bias: number;
+    energy: number;
+  } | null = null;
 
   constructor(private readonly deps: SessionDeps) {
     this.transport = new Transport<PickMeta, PickRequest>(deps.audio, this, {
@@ -142,6 +150,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
     this.divergedSince = null;
     this.lastTickAt = Date.now();
     this.deps.sensing.setEnergyBias(0);
+    this.deps.sensing.forgetOccasionRefusal();
     this.store.set({ ...IDLE, status: 'starting', isLoadingNext: true });
     void this.beginWhenSensorsAreUp(run);
   };
@@ -257,24 +266,46 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
         continue;
       }
 
-      const { context } = this.deps.sensing.getSnapshot();
+      const sensed = this.deps.sensing.getSnapshot();
+      let context = sensed.context;
       const { energyBias, nudgePicksLeft } = this.store.get();
       const bias = nudgePicksLeft > 0 ? energyBias : 0;
-      const args = buildPickArgs({
+      const input = {
         deviceId,
         context,
         nudge: request.nudge,
         energyBias: bias,
         excludeDeezerIds: this.heldIds(),
-      });
+      };
 
       let result: PickResult | null = null;
+      let refused = false;
       try {
-        result = await this.timers.withTimeout(backend.pick(args), CONFIG.session.pickTimeoutMs);
-      } catch {
-        result = null;
+        result = await this.timers.withTimeout(
+          backend.pick(buildPickArgs({ ...input, occasion: sensed.occasion })),
+          CONFIG.session.pickTimeoutMs,
+        );
+      } catch (error) {
+        // The server answered with an error, as opposed to not answering at all.
+        refused = !(error instanceof TimeoutError);
       }
       if (cancelled()) return null;
+
+      // A backend from before occasions refuses their arguments. Ask again
+      // without them; if that works, carry on without the occasion and say so.
+      if (!result && refused && sensed.occasion) {
+        context = withoutOccasion(context);
+        try {
+          result = await this.timers.withTimeout(
+            backend.pick(buildPickArgs({ ...input, context })),
+            CONFIG.session.pickTimeoutMs,
+          );
+        } catch {
+          result = null;
+        }
+        if (cancelled()) return null;
+        if (result) this.deps.sensing.noteOccasionRefused();
+      }
 
       if (result && result.track && result.track.previewUrl) {
         return {
@@ -404,16 +435,23 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
     const deviceId = this.deps.identity.getDeviceId();
     if (!backend || !deviceId) return;
     const { meta } = play;
+    const entry = {
+      deviceId,
+      deezerId: meta.track.deezerId,
+      startedAt: Date.now(),
+      context: meta.context,
+      sceneKey: meta.scene.key,
+      sceneLabel: meta.scene.label,
+      reason: meta.track.reason,
+    };
     play.playId = backend
-      .logPlay({
-        deviceId,
-        deezerId: meta.track.deezerId,
-        startedAt: Date.now(),
-        context: meta.context,
-        sceneKey: meta.scene.key,
-        sceneLabel: meta.scene.label,
-        reason: meta.track.reason,
-      })
+      .logPlay(entry)
+      // A backend from before occasions refuses the field: the play still belongs in the log.
+      .catch(() =>
+        entry.context.occasion === undefined
+          ? null
+          : backend.logPlay({ ...entry, context: withoutOccasion(entry.context) }),
+      )
       .catch(() => null);
   }
 
@@ -441,14 +479,16 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
   private watchForSharpChange(play: CurrentPlay, progress: DeckProgress, now: number): void {
     // Once the song is over, the next one is already being brought in.
     if (progress.ended) return;
-    const { context } = this.deps.sensing.getSnapshot();
+    const { context, occasion } = this.deps.sensing.getSnapshot();
     const bias = play.meta.energyBias;
-    if (!this.targetFor || this.targetFor.context !== context || this.targetFor.bias !== bias) {
-      this.targetFor = { context, bias, energy: targetEnergy(context, bias) };
+    let target = this.targetFor;
+    if (!target || target.context !== context || target.occasion !== occasion || target.bias !== bias) {
+      target = { context, occasion, bias, energy: targetEnergy(context, bias, occasion) };
+      this.targetFor = target;
     }
 
     const { energyDelta, sustainMs, minPlayMs, crossfadeMs } = TUNING.playback;
-    if (Math.abs(this.targetFor.energy - play.meta.scene.energy) <= energyDelta) {
+    if (Math.abs(target.energy - play.meta.scene.energy) <= energyDelta) {
       this.divergedSince = null;
       return;
     }
@@ -463,7 +503,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
     // (it was picked after the change began): then just bring it in now.
     const lined = this.transport.pendingMeta;
     if (lined) {
-      const wanted = targetEnergy(context, lined.energyBias);
+      const wanted = targetEnergy(context, lined.energyBias, occasion);
       if (Math.abs(wanted - lined.scene.energy) <= energyDelta) {
         this.transport.expedite(crossfadeMs);
         return;
@@ -474,12 +514,14 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
 }
 
 /** The energy `buildScene` targets for a context and an energy bias. */
-function targetEnergy(context: PlayContext, energyBias: number): number {
+function targetEnergy(context: PlayContext, energyBias: number, occasion: ActiveOccasion | null): number {
   return buildScene({
     cadenceSpm: context.cadenceSpm,
     localHour: context.localHour,
     weather: context.weather,
     setting: context.setting,
     energyBias,
+    occasion: occasion?.id,
+    minutesUntil: occasion?.minutesUntil,
   }).energy;
 }

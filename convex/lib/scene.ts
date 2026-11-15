@@ -3,7 +3,8 @@
  * app (simulator preview, switch detection) both call this, so they always agree.
  */
 import { TUNING } from '../tuning';
-import type { Pace, Scene, Setting, TimeOfDay, Weather } from './validators';
+import { occasionEffect } from './occasion';
+import type { Occasion, Pace, Scene, Setting, TimeOfDay, Weather } from './validators';
 
 export type SceneInput = {
   /** Steps per minute. */
@@ -15,6 +16,10 @@ export type SceneInput = {
   /** Carried nudge, clamped to plus or minus TUNING.maxEnergyBias. */
   energyBias?: number;
   temperatureC?: number | null;
+  /** A calendar occasion that is running or coming up, when there is one. */
+  occasion?: Occasion | null;
+  /** Minutes until the occasion starts; zero or less once it has. */
+  minutesUntil?: number;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -112,7 +117,10 @@ function isLateNight(localHour: number): boolean {
 export function buildScene(input: SceneInput): Scene {
   const pace = paceFor(input.cadenceSpm);
   const timeOfDay = timeOfDayFor(input.localHour);
-  const { weather, setting } = input;
+  const { weather } = input;
+  const occasion = occasionEffect(input.occasion, input.minutesUntil);
+  // An occasion can stand in for a setting nobody set, never replace one.
+  const setting = input.setting === 'any' && occasion?.setting ? occasion.setting : input.setting;
   const settingShift = TUNING.settingShift[setting];
   const bias = clamp(input.energyBias ?? 0, -TUNING.maxEnergyBias, TUNING.maxEnergyBias);
 
@@ -120,12 +128,13 @@ export function buildScene(input: SceneInput): Scene {
     energyForCadence(input.cadenceSpm) +
       (isLateNight(input.localHour) ? TUNING.nightEnergyShift : 0) +
       settingShift.energy +
+      (occasion?.energy ?? 0) +
       bias,
     0.05,
     1,
   );
   const valence = clamp(
-    TUNING.valenceByWeather[weather] + TUNING.valenceShiftByTime[timeOfDay] + settingShift.valence,
+    TUNING.valenceByWeather[weather] + TUNING.valenceShiftByTime[timeOfDay] + settingShift.valence + (occasion?.valence ?? 0),
     0.05,
     0.95,
   );
@@ -141,5 +150,6 @@ export function buildScene(input: SceneInput): Scene {
     valence,
     bpm: pace === 'still' ? null : Math.round(input.cadenceSpm),
     temperatureC: input.temperatureC ?? null,
+    ...(occasion && input.occasion ? { occasion: input.occasion, occasionLine: occasion.line } : {}),
   };
 }

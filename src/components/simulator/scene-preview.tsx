@@ -46,6 +46,11 @@ export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft, tint }: 
       <AppText numberOfLines={2} tone="muted" variant="meta">
         {nudge ? `${tempo} · ${nudge}` : tempo}
       </AppText>
+      {scene.occasion && scene.occasionLine ? (
+        <AppText numberOfLines={1} testID="sim-occasion-line" tone="soft" variant="meta">
+          {scene.occasionLine}
+        </AppText>
+      ) : null}
     </Surface>
   );
 }

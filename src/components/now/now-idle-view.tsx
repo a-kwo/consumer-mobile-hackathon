@@ -7,6 +7,7 @@ import { space } from '@/theme';
 import { CoverStage } from './cover-stage';
 import { metaLine, sceneSentence } from './format';
 import { NowHeader } from './now-header';
+import { OccasionText } from './occasion-chip';
 import { ReplayBanner } from './replay-banner';
 
 type Props = {
@@ -68,6 +69,7 @@ export function NowIdleView({ session, sensing, replay }: Props) {
         </AppText>
         <AppText numberOfLines={1} testID="now-context" tone="muted" variant="meta">
           {metaLine(sensing.context)}
+          <OccasionText scene={scene} testID="now-occasion" />
         </AppText>
       </View>
 

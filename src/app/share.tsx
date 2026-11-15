@@ -47,6 +47,7 @@ export default function ShareScreen() {
   const dayStart = Number.isFinite(requested) && requested > 0 ? startOfLocalDay(requested) : today;
   const ost = useOst(deviceId, dayStart, addDays(dayStart, 1));
   const covers = ost ? mosaicCovers(ost.entries) : [];
+  const photoUrl = ost?.photos?.[0]?.url ?? null;
 
   const topPadding = useModalTopPadding();
 
@@ -70,7 +71,10 @@ export default function ShareScreen() {
   };
 
   const hasTracks = !!ost && ost.entries.length > 0;
-  const ready = hasTracks && !!box && (covers.length === 0 || imagesSettled || waitedLongEnough);
+  const ready =
+    hasTracks &&
+    !!box &&
+    ((covers.length === 0 && !photoUrl) || imagesSettled || waitedLongEnough);
   const cardWidth = box ? Math.floor(Math.min(box.width, box.height * SHARE_CARD_ASPECT)) : 0;
 
   const share = async () => {
@@ -110,7 +114,7 @@ export default function ShareScreen() {
         await Sharing.shareAsync(uri, {
           mimeType: 'image/jpeg',
           UTI: 'public.jpeg',
-          dialogTitle: `Original soundtrack, ${formatLongDate(dayStart)}`,
+          dialogTitle: `Original soundtrack, ${ost?.title ?? formatLongDate(dayStart)}`,
         });
       } catch {
         haptics.error();
@@ -160,6 +164,8 @@ export default function ShareScreen() {
                 displayName={profile?.displayName ?? null}
                 entries={ost.entries}
                 onImagesSettled={() => setImagesSettled(true)}
+                photoUrl={photoUrl}
+                title={ost.title}
                 topMoods={ost.topMoods}
                 width={cardWidth}
               />

@@ -6,6 +6,7 @@ import { colors, radius, sizes, space } from '@/theme';
 
 import { CoverStage } from './cover-stage';
 import { capitalise, metaLine, nudgeLine, sceneSentence } from './format';
+import { OccasionText, hasOccasion } from './occasion-chip';
 import { NowHeader } from './now-header';
 import { PlaybackReadout } from './playback-readout';
 
@@ -120,15 +121,18 @@ export function NowPlayingView({ session, sensing }: Props) {
         <NudgeButton label="More energy" onPress={() => session.nudge('more_energy')} testID="now-more-energy" />
       </View>
 
-      {/* One meta line: the moment, and the nudge being carried. */}
+      {/* One meta line: the moment, the occasion ahead, and the nudge being carried. */}
       <AppText
         accessibilityLiveRegion="polite"
+        adjustsFontSizeToFit
         align="center"
+        minimumFontScale={0.85}
         numberOfLines={1}
         testID="now-status"
         tone="muted"
         variant="meta">
-        {metaLine(sensing.context, session.scene)}
+        {metaLine(sensing.context, session.scene, !!nudge && hasOccasion(sensing.scene))}
+        <OccasionText scene={sensing.scene} testID="now-occasion" />
         {nudge ? (
           <AppText testID="now-nudge" tone="primary" variant="meta">
             {` · ${nudge}`}

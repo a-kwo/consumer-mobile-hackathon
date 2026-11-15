@@ -5,7 +5,7 @@ import { clamp } from './lib/hash';
 import { pickOrder, reasonFor } from './lib/match';
 import { freshPreview } from './lib/preview';
 import { buildScene, normalizeHour } from './lib/scene';
-import { type Scene, type Track, nudgeV, sceneV, settingV, trackV, weatherV } from './lib/validators';
+import { type Scene, type Track, nudgeV, occasionV, sceneV, settingV, trackV, weatherV } from './lib/validators';
 import { findCandidates } from './match';
 import { TUNING } from './tuning';
 import { type WeatherReading, resolveWeather } from './weather';
@@ -18,6 +18,8 @@ const finite = (value: number | undefined, fallback: number) =>
 /**
  * Picks the song that best fits the moment. CONTRACT: the argument and return
  * shapes below are frozen; the app's playback engine is built against them.
+ * Additions are optional on both sides: `occasion` and `minutesUntil` going in,
+ * `scene.occasion` and `scene.occasionLine` coming out.
  *
  * No LLM and no embedding model: the scene embedding is precomputed in `scenes`.
  */
@@ -39,6 +41,10 @@ export const pick = action({
     energyBias: v.optional(v.number()),
     /** Songs the client already holds (playing or preloaded), on top of the server-side recent-plays exclusion. */
     excludeDeezerIds: v.optional(v.array(v.number())),
+    /** A calendar occasion that is running or coming up. The phone sends the id only, never the event. */
+    occasion: v.optional(occasionV),
+    /** Minutes until the occasion starts; zero or less once it has. Without it the occasion counts as started. */
+    minutesUntil: v.optional(v.number()),
   },
   returns: v.object({
     scene: sceneV,
@@ -65,6 +71,8 @@ export const pick = action({
       setting: args.setting ?? 'any',
       energyBias: clamp(finite(args.energyBias, 0), -TUNING.maxEnergyBias, TUNING.maxEnergyBias),
       temperatureC: reading.temperatureC,
+      occasion: args.occasion,
+      minutesUntil: finite(args.minutesUntil, 0),
     });
 
     const excludeDeezerIds = (args.excludeDeezerIds ?? [])

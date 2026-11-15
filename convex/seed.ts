@@ -7,17 +7,24 @@
  * duplicates a profile and it only ever appends plays, so a feed someone is
  * looking at never reshuffles. With an empty library it does nothing.
  *
+ * Friends also title their days, and two of them add a "photo": an image drawn
+ * in code (lib/bokeh.ts), so the photo layout shows on a device with an empty
+ * camera roll.
+ *
  *   npx convex run seed:friends
  */
 import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
-import { internalAction, internalMutation } from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import { type MutationCtx, internalAction, internalMutation } from './_generated/server';
+import { BOKEH_PALETTES, type BokehPaletteName, bokehPng } from './lib/bokeh';
 import { hashString, seededRandom } from './lib/hash';
 import { pickOrder, reasonFor } from './lib/match';
 import { buildScene, normalizeHour } from './lib/scene';
 import { type PlayContext, type Setting, type Weather, playContextV } from './lib/validators';
 import { findCandidates } from './match';
+import { ensureOst } from './ost';
 import { type NewPlay, recordPlay } from './plays';
 import { TUNING } from './tuning';
 
@@ -37,6 +44,10 @@ type Persona = {
   avatarEmoji: string;
   /** The friend's day in local hours. Hours no block covers are spent asleep. */
   day: readonly { from: number; to: number; activity: Activity }[];
+  /** What the friend calls their days. Absent: the soundtrack shows its date. */
+  ostTitle?: string;
+  /** The generated lead image the friend adds to each day. Absent: the cover mosaic leads. */
+  photo?: BokehPaletteName;
 };
 
 const STILL = [0, 0] as const;
@@ -48,6 +59,8 @@ const PERSONAS: readonly Persona[] = [
     deviceId: 'seed-mira',
     displayName: 'Mira',
     avatarEmoji: '🌙',
+    ostTitle: 'The long way home',
+    photo: 'rainyNight',
     day: [
       { from: 0, to: 2.5, activity: { cadence: [68, 84], setting: 'city', weather: 'rain', places: ['Valencia Street', '24th Street', 'the Mission'] } },
       { from: 11, to: 15, activity: { cadence: STILL, setting: 'indoors', weather: 'rain', places: [] } },
@@ -61,6 +74,8 @@ const PERSONAS: readonly Persona[] = [
     deviceId: 'seed-theo',
     displayName: 'Theo',
     avatarEmoji: '🌅',
+    ostTitle: 'First light',
+    photo: 'sunrise',
     day: [
       { from: 5.5, to: 7.5, activity: { cadence: [158, 172], setting: 'nature', weather: 'clear', places: ['the park', 'Golden Gate Park', 'the Panhandle'] } },
       { from: 7.5, to: 9, activity: { cadence: [112, 124], setting: 'city', weather: 'clear', places: ['Haight Street', 'Cole Valley'] } },
@@ -90,6 +105,29 @@ const PERSONAS: readonly Persona[] = [
 ];
 
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** The friends' local day that contains a moment, in the shape a phone would send. */
+function seedDayAt(at: number) {
+  const offset = TUNING.seedUtcOffsetHours * HOUR_MS;
+  const dayStart = Math.floor((at + offset) / DAY_MS) * DAY_MS - offset;
+  return { date: new Date(dayStart + offset).toISOString().slice(0, 10), dayStart, dayEnd: dayStart + DAY_MS };
+}
+
+/** Deletes soundtrack rows with their photos and stored files. */
+async function deleteOsts(ctx: MutationCtx, osts: readonly { _id: Id<'osts'> }[]): Promise<void> {
+  for (const ost of osts) {
+    const photos = await ctx.db
+      .query('photos')
+      .withIndex('by_ost', (q) => q.eq('ostId', ost._id))
+      .take(TUNING.share.maxPhotosPerOst);
+    for (const photo of photos) {
+      await ctx.storage.delete(photo.storageId);
+      await ctx.db.delete('photos', photo._id);
+    }
+    await ctx.db.delete('osts', ost._id);
+  }
+}
 
 /** The friends' local hour of day at a moment in time. */
 const localHourAt = (at: number) => normalizeHour(at / HOUR_MS + TUNING.seedUtcOffsetHours);
@@ -226,7 +264,76 @@ export const append = internalMutation({
   },
 });
 
-/** Deletes seeded friends' plays from before `before`, a bounded batch per friend. */
+/** The friend's newest play of the local day, or null when they have not played yet today. */
+const latestPlayOf = (ctx: MutationCtx, deviceId: string, day: { dayStart: number; dayEnd: number }) =>
+  ctx.db
+    .query('plays')
+    .withIndex('by_device_startedAt', (q) =>
+      q.eq('deviceId', deviceId).gte('startedAt', day.dayStart).lt('startedAt', day.dayEnd),
+    )
+    .order('desc')
+    .first();
+
+/**
+ * Gives each friend who has played today a soundtrack row with their title,
+ * and reports which of them still owe the day its photo.
+ */
+export const soundtracks = internalMutation({
+  args: { now: v.number() },
+  returns: v.array(v.object({ deviceId: v.string(), date: v.string() })),
+  handler: async (ctx, { now }) => {
+    const day = seedDayAt(now);
+    const owed: { deviceId: string; date: string }[] = [];
+    for (const persona of PERSONAS) {
+      if (!(await latestPlayOf(ctx, persona.deviceId, day))) continue;
+      const existing = await ctx.db
+        .query('osts')
+        .withIndex('by_device_date', (q) => q.eq('deviceId', persona.deviceId).eq('date', day.date))
+        .first();
+      const ost = existing ?? (await ensureOst(ctx, persona.deviceId, day));
+      if (!existing && persona.ostTitle) await ctx.db.patch('osts', ost._id, { title: persona.ostTitle });
+      if (!persona.photo) continue;
+      const photo = await ctx.db
+        .query('photos')
+        .withIndex('by_ost', (q) => q.eq('ostId', ost._id))
+        .first();
+      if (!photo) owed.push({ deviceId: persona.deviceId, date: day.date });
+    }
+    return owed;
+  },
+});
+
+/**
+ * Puts a generated image on a friend's day, on the newest cue of that day.
+ * When the day has a photo already, or is gone, the image is deleted instead,
+ * so two overlapping seeder runs leave one photo and no stray file.
+ */
+export const attachPhoto = internalMutation({
+  args: { deviceId: v.string(), date: v.string(), storageId: v.id('_storage') },
+  returns: v.boolean(),
+  handler: async (ctx, { deviceId, date, storageId }) => {
+    if (!isSeedDevice(deviceId)) throw new Error(`${deviceId} is not a seeded friend`);
+    const ost = await ctx.db
+      .query('osts')
+      .withIndex('by_device_date', (q) => q.eq('deviceId', deviceId).eq('date', date))
+      .first();
+    const taken = ost
+      ? await ctx.db
+          .query('photos')
+          .withIndex('by_ost', (q) => q.eq('ostId', ost._id))
+          .first()
+      : null;
+    const play = ost ? await latestPlayOf(ctx, deviceId, ost) : null;
+    if (!ost || taken || !play) {
+      await ctx.storage.delete(storageId);
+      return false;
+    }
+    await ctx.db.insert('photos', { ostId: ost._id, playId: play._id, storageId, takenAt: play.startedAt });
+    return true;
+  },
+});
+
+/** Deletes seeded friends' plays from before `before`, a bounded batch per friend, and the soundtrack rows of days that ended by then. */
 export const prune = internalMutation({
   args: { before: v.number() },
   returns: v.number(),
@@ -241,6 +348,13 @@ export const prune = internalMutation({
     );
     const old = batches.flat();
     await Promise.all(old.map((play) => ctx.db.delete('plays', play._id)));
+    for (const { deviceId } of PERSONAS) {
+      const osts = await ctx.db
+        .query('osts')
+        .withIndex('by_device_dayStart', (q) => q.eq('deviceId', deviceId).lt('dayStart', before - DAY_MS))
+        .take(20);
+      await deleteOsts(ctx, osts);
+    }
     return old.length;
   },
 });
@@ -265,13 +379,22 @@ export const reset = internalMutation({
     );
     const plays = batches.flat();
     await Promise.all(plays.map((play) => ctx.db.delete('plays', play._id)));
+    // Their photos point at the deleted plays, so the soundtrack rows go too.
+    for (const { deviceId } of PERSONAS) {
+      const osts = await ctx.db
+        .query('osts')
+        .withIndex('by_device_dayStart', (q) => q.eq('deviceId', deviceId))
+        .take(20);
+      await deleteOsts(ctx, osts);
+    }
     return { deleted: plays.length, more: batches.some((batch) => batch.length === limit) };
   },
 });
 
 /**
  * Creates the three friends if they are missing, appends whatever plays they
- * are due and prunes their plays older than `seedPruneMs`. Run hourly by the
+ * are due, titles their day and adds its photo, and prunes their plays older
+ * than `seedPruneMs`. Run hourly by the
  * cron in crons.ts, and by hand after importing a library.
  */
 export const friends = internalAction({
@@ -316,6 +439,16 @@ export const friends = internalAction({
         const count: number = await ctx.runMutation(internal.seed.append, { deviceId: persona.deviceId, plays });
         added += count;
       }
+    }
+
+    const owed: { deviceId: string; date: string }[] = await ctx.runMutation(internal.seed.soundtracks, { now });
+    for (const { deviceId, date } of owed) {
+      const palette = PERSONAS.find((persona) => persona.deviceId === deviceId)?.photo;
+      if (!palette) continue;
+      const { width, height } = TUNING.share.seedPhoto;
+      const png = bokehPng(hashString(`${deviceId}:${date}`), BOKEH_PALETTES[palette], width, height);
+      const storageId = await ctx.storage.store(new Blob([png.slice().buffer], { type: 'image/png' }));
+      await ctx.runMutation(internal.seed.attachPhoto, { deviceId, date, storageId });
     }
 
     const pruned: number = await ctx.runMutation(internal.seed.prune, { before: now - TUNING.seedPruneMs });
