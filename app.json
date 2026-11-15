@@ -1,0 +1,77 @@
+{
+  "expo": {
+    "name": "Score",
+    "slug": "consumer-mobile-hackathon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "consumermobilehackathon",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.akwo.consumermobilehackathon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A0E",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.akwo.consumermobilehackathon",
+      "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION"
+      ]
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0A0E",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Score reads your step cadence to match the music to your pace."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Score uses your location for local weather and to name the places in your soundtrack."
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/instrument-serif/400Regular/InstrumentSerif_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/instrument-serif/400Regular_Italic/InstrumentSerif_400Regular_Italic.ttf"
+          ]
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

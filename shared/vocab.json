@@ -1,0 +1,334 @@
+{
+  "version": 1,
+  "embedding": {
+    "model": "BAAI/bge-small-en-v1.5",
+    "dimensions": 384
+  },
+  "sceneKeyFormat": "pace|weather|timeOfDay|setting",
+  "paces": [
+    {
+      "id": "still",
+      "embed": "sitting or standing still, a quiet pause",
+      "moodHints": [
+        "calm",
+        "reflective",
+        "dreamy"
+      ],
+      "tagHints": [
+        "wind down",
+        "focus"
+      ]
+    },
+    {
+      "id": "stroll",
+      "embed": "a slow, unhurried walk",
+      "moodHints": [
+        "calm",
+        "reflective",
+        "warm"
+      ],
+      "tagHints": [
+        "city walk",
+        "nature walk"
+      ]
+    },
+    {
+      "id": "walk",
+      "embed": "walking at a steady pace",
+      "moodHints": [
+        "groovy",
+        "confident",
+        "hopeful"
+      ],
+      "tagHints": [
+        "city walk",
+        "main character moment"
+      ]
+    },
+    {
+      "id": "brisk",
+      "embed": "walking fast with purpose",
+      "moodHints": [
+        "driving",
+        "confident",
+        "energetic"
+      ],
+      "tagHints": [
+        "commute",
+        "main character moment"
+      ]
+    },
+    {
+      "id": "run",
+      "embed": "running hard, heart pounding",
+      "moodHints": [
+        "energetic",
+        "driving",
+        "triumphant"
+      ],
+      "tagHints": [
+        "running",
+        "workout"
+      ]
+    }
+  ],
+  "weathers": [
+    {
+      "id": "any",
+      "embed": "",
+      "moodHints": [],
+      "tagHints": []
+    },
+    {
+      "id": "clear",
+      "embed": "under a clear sky",
+      "moodHints": [
+        "joyful",
+        "hopeful",
+        "warm"
+      ],
+      "tagHints": [
+        "golden hour"
+      ]
+    },
+    {
+      "id": "cloudy",
+      "embed": "under grey, overcast clouds",
+      "moodHints": [
+        "reflective",
+        "bittersweet"
+      ],
+      "tagHints": []
+    },
+    {
+      "id": "fog",
+      "embed": "through thick fog",
+      "moodHints": [
+        "mysterious",
+        "ethereal",
+        "lonely"
+      ],
+      "tagHints": []
+    },
+    {
+      "id": "rain",
+      "embed": "in the rain",
+      "moodHints": [
+        "melancholy",
+        "reflective",
+        "cozy"
+      ],
+      "tagHints": [
+        "rainy day"
+      ]
+    },
+    {
+      "id": "snow",
+      "embed": "while snow falls",
+      "moodHints": [
+        "ethereal",
+        "tender",
+        "nostalgic"
+      ],
+      "tagHints": [
+        "snow day"
+      ]
+    },
+    {
+      "id": "storm",
+      "embed": "in a thunderstorm",
+      "moodHints": [
+        "tense",
+        "dark",
+        "epic"
+      ],
+      "tagHints": [
+        "rainy day"
+      ]
+    }
+  ],
+  "timesOfDay": [
+    {
+      "id": "morning",
+      "embed": "in the morning as the day begins",
+      "moodHints": [
+        "hopeful",
+        "warm"
+      ],
+      "tagHints": [
+        "sunrise",
+        "sunday morning"
+      ]
+    },
+    {
+      "id": "afternoon",
+      "embed": "in the middle of the afternoon",
+      "moodHints": [
+        "playful",
+        "confident"
+      ],
+      "tagHints": []
+    },
+    {
+      "id": "evening",
+      "embed": "in the evening as the light fades",
+      "moodHints": [
+        "nostalgic",
+        "romantic",
+        "bittersweet"
+      ],
+      "tagHints": [
+        "golden hour",
+        "dinner"
+      ]
+    },
+    {
+      "id": "night",
+      "embed": "late at night when the streets are empty",
+      "moodHints": [
+        "dreamy",
+        "lonely",
+        "mysterious"
+      ],
+      "tagHints": [
+        "late night",
+        "after hours"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "id": "any",
+      "embed": "",
+      "moodHints": [],
+      "tagHints": []
+    },
+    {
+      "id": "city",
+      "embed": "through city streets",
+      "moodHints": [
+        "confident",
+        "cinematic"
+      ],
+      "tagHints": [
+        "city walk",
+        "commute"
+      ]
+    },
+    {
+      "id": "nature",
+      "embed": "through a park, among trees",
+      "moodHints": [
+        "calm",
+        "ethereal",
+        "hopeful"
+      ],
+      "tagHints": [
+        "nature walk"
+      ]
+    },
+    {
+      "id": "indoors",
+      "embed": "at home, indoors",
+      "moodHints": [
+        "cozy",
+        "warm",
+        "tender"
+      ],
+      "tagHints": [
+        "cozy indoors",
+        "focus"
+      ]
+    },
+    {
+      "id": "transit",
+      "embed": "on a train, watching the city pass the window",
+      "moodHints": [
+        "reflective",
+        "cinematic",
+        "dreamy"
+      ],
+      "tagHints": [
+        "commute",
+        "night drive"
+      ]
+    },
+    {
+      "id": "gym",
+      "embed": "at the gym, mid-workout",
+      "moodHints": [
+        "energetic",
+        "aggressive",
+        "confident"
+      ],
+      "tagHints": [
+        "workout"
+      ]
+    }
+  ],
+  "moods": [
+    "calm",
+    "dreamy",
+    "melancholy",
+    "nostalgic",
+    "hopeful",
+    "joyful",
+    "euphoric",
+    "romantic",
+    "tender",
+    "bittersweet",
+    "lonely",
+    "brooding",
+    "dark",
+    "tense",
+    "mysterious",
+    "ethereal",
+    "cinematic",
+    "epic",
+    "triumphant",
+    "energetic",
+    "driving",
+    "aggressive",
+    "playful",
+    "groovy",
+    "sultry",
+    "confident",
+    "rebellious",
+    "warm",
+    "cozy",
+    "reflective"
+  ],
+  "sceneTags": [
+    "rainy day",
+    "late night",
+    "after hours",
+    "sunrise",
+    "sunday morning",
+    "golden hour",
+    "city walk",
+    "nature walk",
+    "commute",
+    "night drive",
+    "road trip",
+    "running",
+    "workout",
+    "focus",
+    "study",
+    "coffee shop",
+    "cooking",
+    "dinner",
+    "party",
+    "pregame",
+    "getting ready",
+    "beach",
+    "snow day",
+    "cozy indoors",
+    "heartbreak",
+    "wind down",
+    "sleep",
+    "stargazing",
+    "victory lap",
+    "main character moment"
+  ],
+  "note": "Ids, embedding phrases and mood/tag hints. Shared by the Python pipeline and the TypeScript code. Numeric thresholds live in convex/tuning.ts."
+}

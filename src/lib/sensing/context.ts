@@ -1,0 +1,59 @@
+/**
+ * Turns simulator values or live readings into the `PlayContext` that is sent
+ * with a pick and stored with a play. Pure.
+ */
+import type { PlayContext, Setting } from '../../../convex/lib/validators';
+import type { LiveReadings, SimValues } from '../score/types';
+import type { Coordinates } from './geo';
+
+/** What a simulated play calls its place. `any` has no place. */
+const SETTING_PLACE: Record<Setting, string | null> = {
+  any: null,
+  city: 'the city',
+  nature: 'the park',
+  indoors: 'home',
+  transit: 'the train',
+  gym: 'the gym',
+};
+
+/** The place phrase for a simulator setting, e.g. "the park"; null for `any`. */
+export function placeForSetting(setting: Setting): string | null {
+  return SETTING_PLACE[setting];
+}
+
+/** The device clock as a float hour, 0 to 24, to two decimals. */
+export function localHourOf(date: Date): number {
+  const hour = date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
+  return Math.round(hour * 100) / 100;
+}
+
+export function simulatedContext(sim: SimValues): PlayContext {
+  const context: PlayContext = {
+    cadenceSpm: sim.cadenceSpm,
+    weather: sim.weather,
+    localHour: sim.localHour,
+    setting: sim.setting,
+    simulated: true,
+  };
+  const place = placeForSetting(sim.setting);
+  if (place) context.placeName = place;
+  return context;
+}
+
+export function liveContext(live: LiveReadings, coordinates: Coordinates | null): PlayContext {
+  const context: PlayContext = {
+    cadenceSpm: live.cadenceSpm,
+    weather: live.weather,
+    localHour: live.localHour,
+    setting: 'any',
+    simulated: false,
+  };
+  if (live.speedMps !== null) context.speedMps = live.speedMps;
+  if (live.temperatureC !== null) context.temperatureC = live.temperatureC;
+  if (live.placeName !== null) context.placeName = live.placeName;
+  if (coordinates) {
+    context.lat = coordinates.lat;
+    context.lon = coordinates.lon;
+  }
+  return context;
+}

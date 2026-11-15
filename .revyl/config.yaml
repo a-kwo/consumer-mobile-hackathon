@@ -1,0 +1,55 @@
+project:
+    id: 324f484b-f67e-468a-a549-b664c7cb9af0
+session:
+    idle_timeout_seconds: 1800
+build:
+    framework: expo
+    env:
+        EXPO_PUBLIC_CONVEX_URL: https://focused-wildebeest-518.convex.cloud
+    profiles:
+        development:
+            ios:
+                app_id: "f97a85c8-64db-413b-95c2-3ac0ac778da1"
+                image: ios-macos-26-xcode-27.1
+                timeout_seconds: 1200
+                setup_commands:
+                    - npm install
+                    - if [ ! -d ios ]; then npx expo prebuild --platform ios --no-install; fi
+                build_commands:
+                    - cd ios && if [ ! -d Pods ]; then pod install; fi && WS=$(ls -d *.xcworkspace | head -n 1) && xcodebuild -workspace "$WS" -scheme "${WS%.xcworkspace}" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 -derivedDataPath build
+                output_path: ios/build/Build/Products/Debug-iphonesimulator/*.app
+            android:
+                setup_commands:
+                    - npm install
+                    - if [ ! -d android ]; then npx expo prebuild --platform android --no-install; fi
+                build_commands:
+                    - cd android && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64
+                output_path: android/app/build/outputs/apk/debug/app-debug.apk
+        preview:
+            ios:
+                app_id: "051f1327-94be-4624-93a1-7c647289b5f7"
+                image: ios-macos-26-xcode-27.1
+                timeout_seconds: 1200
+                setup_commands:
+                    - npm install
+                    - if [ ! -d ios ]; then npx expo prebuild --platform ios --no-install; fi
+                build_commands:
+                    - cd ios && if [ ! -d Pods ]; then pod install; fi && WS=$(ls -d *.xcworkspace | head -n 1) && xcodebuild -workspace "$WS" -scheme "${WS%.xcworkspace}" -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 -derivedDataPath build
+                output_path: ios/build/Build/Products/Release-iphonesimulator/*.app
+            android:
+                app_id: "d9e67510-f59d-4a41-b692-540e6c253739"
+                setup_commands:
+                    - npm install
+                    - if [ ! -d android ]; then npx expo prebuild --platform android --no-install; fi
+                build_commands:
+                    - cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64
+                output_path: android/app/build/outputs/apk/release/app-release.apk
+pr_review:
+    enabled: true
+    build:
+        kind: revyl
+        profile: preview
+    proof_of_changes:
+        enabled: true
+        harness:
+            kind: revyl
