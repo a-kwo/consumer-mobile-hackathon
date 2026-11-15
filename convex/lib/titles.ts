@@ -52,6 +52,8 @@ const SETTING_PLACE: Record<Setting, Place | null> = {
 
 const STREET =
   /\b(street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|way|court|ct|place|pl|terrace|highway|hwy|parkway|pkwy|broadway|alley|row|bridge|embarcadero|promenade|boardwalk|trail|path)\.?$/i;
+/** Languages that put the kind of road first: "Rua Augusta", "Avenida Amsterdam". */
+const STREET_FIRST = /^(rua|avenida|av\.|calle|rue|via|paseo|carrer|travessa)\s/i;
 const AT_NOUN =
   /\b(home|work|office|caf[eé]|coffee shop|library|studio|gym|station|airport|market|school|campus|beach|bar|pool)$/i;
 
@@ -68,7 +70,7 @@ function placeFor(context: PlayContext): Place | null {
   if (!name) return SETTING_PLACE[context.setting];
   const indoors = SETTING_PLACE[context.setting]?.indoors ?? false;
   if (/^(at )?home$/i.test(name)) return { at: 'at home', through: 'at home', indoors: true };
-  if (STREET.test(name) || /^\d/.test(name)) return { at: `on ${name}`, through: `down ${name}`, indoors };
+  if (STREET.test(name) || STREET_FIRST.test(name) || /^\d/.test(name)) return { at: `on ${name}`, through: `down ${name}`, indoors };
   if (AT_NOUN.test(name)) return { at: `at ${name}`, through: `at ${name}`, indoors: true };
   return { at: `in ${name}`, through: `through ${name}`, indoors };
 }

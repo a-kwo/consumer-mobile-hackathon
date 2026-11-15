@@ -1,9 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
+import { DayMap } from '@/components/map/day-map';
+import { centreOf, stopsOf } from '@/components/map/places';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
 import { mosaicCovers, sentenceCase, toReplayItems } from '@/components/ost/format';
 import { LeadPhoto } from '@/components/ost/lead-photo';
@@ -23,6 +25,7 @@ import {
   Screen,
   useScreenInsets,
 } from '@/components/ui';
+import { albumInk } from '@/lib/album-ink';
 import { useProfile, useReplay, type OstEntry } from '@/lib/score';
 import { colors, layout, paperAlpha, sizes, space } from '@/theme';
 
@@ -42,6 +45,8 @@ export default function FriendScreen() {
   const insets = useScreenInsets();
   const replayInset = useReplayBarListInset();
   const barSpace = useReplayBarInset();
+  const window = useWindowDimensions();
+  const mapWidth = Math.min(window.width, layout.maxContentWidth) - layout.screenPadding * 2;
   // A photo that will not load gives the cover back to the mosaic.
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
 
@@ -84,6 +89,9 @@ export default function FriendScreen() {
   const leadPhoto =
     item.leadPhotoUrl && item.leadPhotoUrl !== failedPhoto ? item.leadPhotoUrl : null;
   const photoUrls = item.photoUrls ?? [];
+  // Where the day went, when it says: a still of the friends map with the stops on it.
+  const stops = stopsOf(item);
+  const centre = centreOf(item, stops);
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
 
@@ -111,10 +119,21 @@ export default function FriendScreen() {
         <View style={styles.who}>
           <Avatar emoji={profile.avatarEmoji} size={28} />
           <AppText numberOfLines={1} variant="meta">
-            {feedMeta(item, now)}
+            {[centre?.label, feedMeta(item, now)].filter(Boolean).join(' · ')}
           </AppText>
         </View>
       </View>
+
+      {centre && stops.length > 0 ? (
+        <DayMap
+          activeStopIndex={entries.findIndex(isReplaying)}
+          place={centre}
+          stops={stops}
+          testID="friend-map"
+          tint={albumInk(entries.at(-1)?.coverColor, colors.inkMuted)}
+          width={mapWidth}
+        />
+      ) : null}
 
       <View style={styles.album}>
         {leadPhoto ? (

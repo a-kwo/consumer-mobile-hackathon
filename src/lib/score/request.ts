@@ -15,12 +15,18 @@ export type PickInput = {
   excludeDeezerIds: readonly number[];
   /** The occasion steering this pick, when there is one. */
   occasion?: ActiveOccasion | null;
+  /**
+   * Simulated mode only: the context's weather is the real weather at its
+   * coordinates, so no override is sent and the server resolves it there.
+   */
+  weatherFromLocation?: boolean;
 };
 
 /**
- * In simulated mode the simulator's weather and setting are sent and no
- * coordinates; in live mode the setting is `any` and coordinates are sent, so
- * the server looks the weather up itself. Optional fields are left out rather
+ * Coordinates are sent whenever the context has them (live fixes, or the
+ * location set in manual mode), so the server can resolve real weather there.
+ * In simulated mode the weather is also sent as an override, which wins on the
+ * server, unless it is the location's own weather. Optional fields are left out rather
  * than sent as undefined. Of an occasion only the id and the minutes until it
  * starts are sent.
  */
@@ -32,14 +38,15 @@ export function buildPickArgs(input: PickInput): PickArgs {
     localHour: context.localHour,
     setting: context.setting,
   };
+  const located = context.lat !== undefined && context.lon !== undefined;
+  if (located) {
+    args.lat = context.lat;
+    args.lon = context.lon;
+  }
   if (context.simulated) {
-    args.weatherOverride = context.weather;
-  } else {
-    if (context.speedMps !== undefined) args.speedMps = context.speedMps;
-    if (context.lat !== undefined && context.lon !== undefined) {
-      args.lat = context.lat;
-      args.lon = context.lon;
-    }
+    if (!(input.weatherFromLocation && located)) args.weatherOverride = context.weather;
+  } else if (context.speedMps !== undefined) {
+    args.speedMps = context.speedMps;
   }
   if (input.occasion) {
     args.occasion = input.occasion.id;

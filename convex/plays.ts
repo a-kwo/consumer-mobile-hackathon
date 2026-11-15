@@ -1,9 +1,11 @@
 import { v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { type MutationCtx, internalMutation, mutation } from './_generated/server';
 import { isClientDeviceId } from './lib/device';
 import { clamp } from './lib/hash';
+import { geocodeCell } from './lib/places';
 import { normalizeHour } from './lib/scene';
 import { cleanPlaceName, makeTitle } from './lib/titles';
 import { type PlayContext, playContextV } from './lib/validators';
@@ -19,6 +21,8 @@ export type NewPlay = {
   sceneKey: string;
   sceneLabel: string;
   reason: string;
+  /** The city the coordinates are in, when the caller knows it (the seeder does). */
+  city?: string;
 };
 
 /** Bounds what a client can put in the log, and drops an empty place name. */
@@ -42,6 +46,7 @@ function cleanContext(context: PlayContext): PlayContext {
  */
 export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'plays'> | null> {
   if (!play.deviceId || !Number.isFinite(play.startedAt)) return null;
+  let lookUpCity = false;
   const [song, sameMoment, earlier] = await Promise.all([
     ctx.db
       .query('songs')
@@ -63,7 +68,20 @@ export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'p
   if (duplicate) return duplicate._id;
 
   const context = cleanContext(play.context);
-  return await ctx.db.insert('plays', {
+  // The friends map needs the play's city. The app has usually just asked
+  // places:reverse about this spot, so the answer is in the cache; when it is
+  // not, an action looks it up after this mutation and fills it in.
+  const cell = context.lat === undefined || context.lon === undefined ? null : geocodeCell(context.lat, context.lon);
+  let city = play.city;
+  if (!city && cell) {
+    const known = await ctx.db
+      .query('placeCache')
+      .withIndex('by_key', (q) => q.eq('key', cell.key))
+      .first();
+    city = known?.places[0]?.city ?? undefined;
+    if (!known) lookUpCity = true;
+  }
+  const playId = await ctx.db.insert('plays', {
     deviceId: play.deviceId,
     deezerId: song.deezerId,
     songTitle: song.title,
@@ -82,8 +100,23 @@ export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'p
       recentTitles: earlier.map((previous) => previous.title),
     }),
     skipped: false,
+    ...(city ? { city } : {}),
   });
+  if (lookUpCity && context.lat !== undefined && context.lon !== undefined) {
+    await ctx.scheduler.runAfter(0, internal.places.labelPlay, { playId, lat: context.lat, lon: context.lon });
+  }
+  return playId;
 }
+
+/** Sets the city of a play once it is known. */
+export const setCity = internalMutation({
+  args: { playId: v.id('plays'), city: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { playId, city }) => {
+    if (await ctx.db.get('plays', playId)) await ctx.db.patch('plays', playId, { city });
+    return null;
+  },
+});
 
 /**
  * Logs a play when playback of a pick actually starts. The server copies the

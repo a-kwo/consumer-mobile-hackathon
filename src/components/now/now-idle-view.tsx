@@ -5,9 +5,9 @@ import type { ReplayApi, SensingApi, SessionApi } from '@/lib/score';
 import { space } from '@/theme';
 
 import { CoverStage } from './cover-stage';
-import { metaLine, sceneSentence } from './format';
+import { sceneSentence } from './format';
+import { MetaLine } from './meta-line';
 import { NowHeader } from './now-header';
-import { OccasionText } from './occasion-chip';
 import { ReplayBanner } from './replay-banner';
 
 type Props = {
@@ -67,10 +67,12 @@ export function NowIdleView({ session, sensing, replay }: Props) {
           variant="songTitle">
           Press play. Walk.{'\n'}We’ll score it.
         </AppText>
-        <AppText numberOfLines={1} testID="now-context" tone="muted" variant="meta">
-          {metaLine(sensing.context)}
-          <OccasionText scene={scene} testID="now-occasion" />
-        </AppText>
+        <MetaLine
+          context={sensing.context}
+          location={sensing.location}
+          scene={scene}
+          testID="now-context"
+        />
       </View>
 
       <View style={styles.footer}>

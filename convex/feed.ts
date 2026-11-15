@@ -2,8 +2,9 @@ import { v } from 'convex/values';
 
 import type { Doc } from './_generated/dataModel';
 import { type QueryCtx, query } from './_generated/server';
+import { isClientDeviceId } from './lib/device';
 import { publicTitle, summarizeMoods, toOstEntry } from './lib/ost';
-import { type FeedItem, feedItemV } from './lib/validators';
+import { type FeedItem, feedItemV, feedLocationV } from './lib/validators';
 import { loadPhotos } from './ost';
 import { TUNING } from './tuning';
 
@@ -37,6 +38,41 @@ async function feedProfiles(ctx: QueryCtx): Promise<Doc<'profiles'>[]> {
     return true;
   });
 }
+
+/** A play's coordinates, or null when it has none. `coarse` rounds them to city scale. */
+function pointOf(play: Doc<'plays'>, coarse: boolean): { lat: number; lon: number } | null {
+  const { lat, lon } = play.context;
+  if (lat === undefined || lon === undefined || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (!coarse) return { lat, lon };
+  const step = TUNING.feed.locationRoundDegrees;
+  const round = (value: number) => Number((Math.round(value / step) * step).toFixed(4));
+  return { lat: round(lat), lon: round(lon) };
+}
+
+/**
+ * Where the caller last was, for placing "you" on the friends map: the newest
+ * of their own plays from the last day that has coordinates. Exact, since it is
+ * only ever shown to its owner. Null when there is none.
+ */
+export const me = query({
+  args: { deviceId: v.string() },
+  returns: v.union(feedLocationV, v.null()),
+  handler: async (ctx, { deviceId }) => {
+    if (!isClientDeviceId(deviceId)) return null;
+    const plays = await ctx.db
+      .query('plays')
+      .withIndex('by_device_startedAt', (q) =>
+        q.eq('deviceId', deviceId).gte('startedAt', Date.now() - TUNING.feed.ownLocationWindowMs),
+      )
+      .order('desc')
+      .take(TUNING.feed.maxPerProfile);
+    for (const play of plays) {
+      const at = pointOf(play, false);
+      if (at) return { ...at, label: play.city ?? play.context.placeName ?? '' };
+    }
+    return null;
+  },
+});
 
 /**
  * Recent soundtracks from other profiles, newest first. A day its owner made
@@ -89,14 +125,24 @@ export const list = query({
         const title = ostFor(plays[plays.length - 1])?.title;
         const leadPhotoUrl = [...days].reverse().find((day) => day.photos.length > 0)?.photos[0].url;
 
+        // A seeded friend is not a person, so their map points stay exact.
+        const point = (play: Doc<'plays'>) => pointOf(play, !profile.seeded);
+        const shown = (play: Doc<'plays'>) => !ostFor(play)?.hideLocations;
         const entries = plays.map((play) => {
           const photoUrl = photoByPlay.get(play._id);
           return {
             ...toOstEntry(play),
-            ...(ostFor(play)?.hideLocations ? { title: publicTitle(play) } : {}),
+            ...(shown(play) ? (point(play) ?? {}) : { title: publicTitle(play) }),
             ...(photoUrl ? { photoUrl } : {}),
           };
         });
+        // Where the newest day is happening: its latest cue with a point and a city.
+        const newest = plays[plays.length - 1];
+        const located = [...plays]
+          .reverse()
+          .find((play) => ostFor(play) === ostFor(newest) && shown(play) && play.city && point(play));
+        const at = located ? point(located) : null;
+        const location = located?.city && at ? { ...at, label: located.city } : null;
         return {
           profile: {
             // A deviceId is its owner's only credential, so it is never published.
@@ -111,6 +157,7 @@ export const list = query({
           ...(title ? { title } : {}),
           ...(leadPhotoUrl ? { leadPhotoUrl } : {}),
           ...(photos.length > 0 ? { photoUrls: photos.map((photo) => photo.url) } : {}),
+          ...(location ? { location } : {}),
         };
       }),
     );

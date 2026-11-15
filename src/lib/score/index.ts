@@ -41,6 +41,27 @@
  *       `scene.occasionLine` says it in words. `savePlace(kind)` tags the
  *       current position; in live mode a saved place sets `context.setting`.
  *
+ *     Location by name (also from useSensing(), in every mode and on web):
+ *       `location`: { label, street, area, city, setting, lat, lon,
+ *       source: 'device' | 'chosen' } | null. Show `location.label`.
+ *       `locationStatus`: 'idle' | 'locating' | 'denied' | 'unavailable' |
+ *       'error', the outcome of the last `locateDevice()`.
+ *       `locateDevice()` (alias `useDeviceLocation()`, which is NOT a hook)
+ *       asks for location access if needed, takes one position and names it.
+ *       In a browser call it from a tap. `searchPlaces(query)` resolves to at
+ *       most five `PlaceResult`s and never rejects; `chooseLocation(place)`
+ *       sets one (remembered across reloads); `clearLocation()` forgets it.
+ *       With a location set, picks and logged plays carry its coordinates and
+ *       its short name (street, else area, else city). In manual mode
+ *       `sim.weather` and `sim.setting` then show the location's real weather
+ *       and kind of place, and `sim.weatherSource` / `sim.settingSource` say
+ *       'location'; a `setSim` call that carries `weather` or `setting` (a
+ *       preset included) switches that field to 'manual' until the location
+ *       changes or is cleared. The weather arrives a moment after the
+ *       location is set; a place of no particular kind leaves the setting
+ *       alone. In live mode the sensors' own position is named the same way
+ *       and a chosen place is ignored (it comes back in manual mode).
+ *
  *   useSession()           { status, track, scene, isLoadingNext, error,
  *                            energyBias, nudgePicksLeft,
  *                            start(), stop(), skip(), nudge(direction) }
@@ -90,17 +111,22 @@ export type { ProfileApi, ReplayApi, SensingApi, SessionApi } from './hooks';
 export type {
   CalendarAccess,
   LiveReadings,
+  LocationStatus,
   NudgeDirection,
   PermissionState,
   PlaceKind,
+  PlaceResult,
   PlaybackProgress,
   ProfilePatch,
   ReplayItem,
   ReplayStatus,
   SavedPlace,
+  ScoreLocation,
   SensingMode,
   SessionStatus,
+  SimSource,
   SimValues,
+  SimView,
 } from './types';
 export type { ActiveOccasion } from '../../../convex/lib/occasion';
 export type {

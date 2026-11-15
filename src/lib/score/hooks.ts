@@ -11,17 +11,21 @@ import { useScoreEngine } from './provider';
 import type {
   CalendarAccess,
   LiveReadings,
+  LocationStatus,
   NudgeDirection,
   PermissionState,
   PlaceKind,
+  PlaceResult,
   PlaybackProgress,
   ProfilePatch,
   ReplayItem,
   ReplayStatus,
   SavedPlace,
+  ScoreLocation,
   SensingMode,
   SessionStatus,
   SimValues,
+  SimView,
 } from './types';
 
 export type ProfileApi = {
@@ -44,8 +48,12 @@ export type SensingApi = {
   liveAvailable: boolean;
   /** `'unknown'` until the user has been asked. */
   permissions: { motion: PermissionState; location: PermissionState };
-  /** Simulator values. `localHour` is a float, 0 to 24. */
-  sim: SimValues;
+  /**
+   * Simulator values in effect. `localHour` is a float, 0 to 24. With a location
+   * set, `weather` and `setting` follow it until picked through `setSim`;
+   * `weatherSource` and `settingSource` say which ('location' | 'manual').
+   */
+  sim: SimView;
   /** Cadence is rounded and clamped to 0–220; `localHour` is clamped to 0–24. */
   setSim(patch: Partial<SimValues>): void;
   /** Latest live readings (zeros, `'any'` and nulls until the sensors report). */
@@ -54,6 +62,22 @@ export type SensingApi = {
   context: PlayContext;
   /** What the server would target right now: `buildScene` of the context and the energy bias. */
   scene: Scene;
+  /** Where the user is, by name, in either mode; null when not known. */
+  location: ScoreLocation | null;
+  /** 'locating' while `locateDevice` works; 'denied', 'unavailable' or 'error' when it failed. */
+  locationStatus: LocationStatus;
+  /**
+   * Finds the device's position (asking for permission if needed; in a browser
+   * call it from a tap), names it, and sets `location` with source 'device'.
+   */
+  locateDevice(): void;
+  /** The same function under the name the brief gave it. It is not a React hook. */
+  useDeviceLocation(): void;
+  /** Places matching a typed query, at most five. Never rejects: [] on failure. */
+  searchPlaces(query: string): Promise<PlaceResult[]>;
+  /** Sets `location` with source 'chosen' and remembers it across reloads. */
+  chooseLocation(place: PlaceResult): void;
+  clearLocation(): void;
   /** The occasion steering picks: the simulator's event, or in live mode the calendar's next one. */
   occasion: ActiveOccasion | null;
   /** Whether calendar reading is on. The calendar is only read in live mode. */
@@ -123,6 +147,11 @@ export function useSensing(): SensingApi {
     setCalendarEnabled: sensing.setCalendarEnabled,
     savePlace: sensing.savePlace,
     removePlace: sensing.removePlace,
+    locateDevice: sensing.locateDevice,
+    useDeviceLocation: sensing.locateDevice,
+    searchPlaces: sensing.searchPlaces,
+    chooseLocation: sensing.chooseLocation,
+    clearLocation: sensing.clearLocation,
   };
 }
 

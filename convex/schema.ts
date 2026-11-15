@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-import { playContextV, visibilityV } from './lib/validators';
+import { placeResultV, playContextV, visibilityV } from './lib/validators';
 
 /** Must equal shared/vocab.json `embedding.dimensions`. */
 export const EMBEDDING_DIMENSIONS = 384;
@@ -70,6 +70,8 @@ export default defineSchema({
     coverUrl: v.string(),
     /** Copied from the song at log time, when it has one. */
     coverColor: v.optional(v.string()),
+    /** The city the play's coordinates are in, for the friends map. Filled from the place cache, at log time or just after. */
+    city: v.optional(v.string()),
     bpm: v.number(),
     moods: v.array(v.string()),
     startedAt: v.number(),
@@ -92,6 +94,18 @@ export default defineSchema({
     /** True for the fake friends created by seed:friends. */
     seeded: v.boolean(),
   }).index('by_deviceId', ['deviceId']),
+
+  /**
+   * Geocoder answers, kept for a day: `r:<lat>,<lon>` for a reverse lookup of a
+   * 50 m cell (no places: nothing is there), `s:<query>` for a search. The row
+   * `gate:nominatim` is not a cache entry: its `fetchedAt` is when the next
+   * request to Nominatim may go out, which keeps them a second apart.
+   */
+  placeCache: defineTable({
+    key: v.string(),
+    places: v.array(placeResultV),
+    fetchedAt: v.number(),
+  }).index('by_key', ['key']),
 
   weatherCache: defineTable({
     /** Rounded "lat,lon" cell. */

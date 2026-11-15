@@ -6,6 +6,9 @@ import type { Occasion, PlayContext, Setting } from '../../../convex/lib/validat
 import type { LiveReadings, SimValues } from '../score/types';
 import type { Coordinates } from './geo';
 
+/** What a set location adds to a context. */
+export type ContextPlace = Coordinates & { placeName: string | null; temperatureC: number | null };
+
 /** What a simulated play calls its place. `any` has no place. */
 const SETTING_PLACE: Record<Setting, string | null> = {
   any: null,
@@ -27,7 +30,16 @@ export function localHourOf(date: Date): number {
   return Math.round(hour * 100) / 100;
 }
 
-export function simulatedContext(sim: SimValues, occasion: Occasion | null = null): PlayContext {
+/**
+ * `sim` holds the values in effect. With `place` (the location set in manual
+ * mode) the context carries its coordinates and its name instead of the
+ * setting's stock phrase, and the temperature when the weather is the place's.
+ */
+export function simulatedContext(
+  sim: SimValues,
+  occasion: Occasion | null = null,
+  place: ContextPlace | null = null,
+): PlayContext {
   const context: PlayContext = {
     cadenceSpm: sim.cadenceSpm,
     weather: sim.weather,
@@ -35,8 +47,13 @@ export function simulatedContext(sim: SimValues, occasion: Occasion | null = nul
     setting: sim.setting,
     simulated: true,
   };
-  const place = placeForSetting(sim.setting);
-  if (place) context.placeName = place;
+  const placeName = place ? place.placeName : placeForSetting(sim.setting);
+  if (placeName) context.placeName = placeName;
+  if (place) {
+    context.lat = place.lat;
+    context.lon = place.lon;
+    if (place.temperatureC !== null) context.temperatureC = place.temperatureC;
+  }
   if (occasion) context.occasion = occasion;
   return context;
 }

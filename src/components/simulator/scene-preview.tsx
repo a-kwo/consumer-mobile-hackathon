@@ -11,6 +11,8 @@ type Props = {
   mode: SensingMode;
   energyBias: number;
   nudgePicksLeft: number;
+  /** Where the user is, by name ("5th Avenue, New York"), when a location is set. */
+  placeLabel?: string | null;
   /** Album ink of the playing song, for the meters. Defaults to ink. */
   tint?: string;
 };
@@ -19,7 +21,7 @@ type Props = {
  * The scene a cue would be picked for right now, as a sentence, with what the
  * music will aim for. It follows the controls (or the phone) as they move.
  */
-export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft, tint }: Props) {
+export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft, placeLabel, tint }: Props) {
   const nudge = nudgeLine(energyBias, nudgePicksLeft);
   const tempo = scene.bpm !== null ? `Tempo in step at ${scene.bpm} BPM` : 'No tempo lock while still';
 
@@ -39,6 +41,11 @@ export function ScenePreview({ scene, mode, energyBias, nudgePicksLeft, tint }: 
           {sceneSentence(scene)}
         </AppText>
       </View>
+      {placeLabel ? (
+        <AppText numberOfLines={1} style={styles.place} testID="sim-scene-place" tone="muted" variant="meta">
+          {placeLabel}
+        </AppText>
+      ) : null}
       <View style={styles.meters}>
         <Meter label="Energy" style={styles.meter} tint={tint} value={scene.energy} />
         <Meter label="Mood" style={styles.meter} tint={tint} value={scene.valence} />
@@ -68,6 +75,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.serifItalic,
     fontSize: 22,
     lineHeight: 28,
+  },
+  // Belongs to the sentence above it.
+  place: {
+    marginTop: -space.sm,
   },
   meters: {
     flexDirection: 'row',

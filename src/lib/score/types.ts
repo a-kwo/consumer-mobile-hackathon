@@ -6,6 +6,7 @@ import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 
 import type { api } from '../../../convex/_generated/api';
 import type { ActiveOccasion } from '../../../convex/lib/occasion';
+import type { LocationStatus, PlaceResult, ScoreLocation } from '../sensing/location';
 import type { PlaceKind, SavedPlace } from '../sensing/places';
 import type {
   Occasion,
@@ -34,6 +35,17 @@ export type SimValues = {
   minutesUntil?: number;
 };
 
+/** Where a simulator field's value comes from: the user's pick, or the location. */
+export type SimSource = 'location' | 'manual';
+
+/**
+ * The simulator values in effect. With a location set, `weather` and `setting`
+ * follow it until the user picks them through `setSim`; the sources say which.
+ */
+export type SimView = SimValues & { weatherSource: SimSource; settingSource: SimSource };
+
+export type { LocationStatus, PlaceResult, ScoreLocation };
+
 /** `'unavailable'` when this build or platform has no calendar module. */
 export type CalendarAccess = PermissionState | 'unavailable';
 
@@ -56,10 +68,13 @@ export type SensingSnapshot = {
   mode: SensingMode;
   liveAvailable: boolean;
   permissions: { motion: PermissionState; location: PermissionState };
-  sim: SimValues;
+  sim: SimView;
   live: LiveReadings;
   context: PlayContext;
   scene: Scene;
+  /** Where the user is, by name; null when not known. */
+  location: ScoreLocation | null;
+  locationStatus: LocationStatus;
   /** The occasion steering picks right now: the simulated one, or the calendar's in live mode. */
   occasion: ActiveOccasion | null;
   /** Whether the user turned calendar reading on. It is only ever read in live mode. */
@@ -148,6 +163,10 @@ export interface Backend {
   updateProfile(args: { deviceId: string } & ProfilePatch): Promise<Profile>;
   preview(args: { deezerId: number }): Promise<{ previewUrl: string | null }>;
   weather(args: { lat: number; lon: number }): Promise<WeatherReport>;
+  /** The place at a coordinate, or null when nothing is there. */
+  reversePlace(args: { lat: number; lon: number }): Promise<Omit<PlaceResult, 'lat' | 'lon'> | null>;
+  /** Up to five places matching a typed query. */
+  searchPlaces(args: { query: string }): Promise<PlaceResult[]>;
   /**
    * Subscribes to the device's profile. `onChange` is called with the current
    * value when it is known and again whenever it changes. Returns unsubscribe.

@@ -97,6 +97,29 @@ export const TUNING = {
   weatherTimeoutMs: 2500,
   /** Sent to the weather APIs. MET Norway refuses requests without a User-Agent. */
   weatherUserAgent: 'Score/1.0 hackathon prototype',
+  /** Naming places (places:reverse and places:search), through OpenStreetMap geocoders. */
+  geocode: {
+    /** Reverse lookups are cached per cell this size: 0.0005 degrees is about 50 m. */
+    cellDegrees: 0.0005,
+    /** Both kinds of lookup are cached this long. */
+    cacheMs: 24 * 60 * 60 * 1000,
+    timeoutMs: 3000,
+    /** Nominatim's usage policy: at most one request a second. Requests are spaced this far apart. */
+    minIntervalMs: 1100,
+    /** A lookup that would have to queue longer than this for Nominatim goes to Photon instead. */
+    maxWaitMs: 2500,
+    /** Labels longer than this lose their city, then are cut. */
+    labelMaxChars: 32,
+    /** How far around a point to look for the park it may be inside. */
+    parkRadiusKm: 1,
+    /** A railway station this close is where you are (Photon only; Nominatim says so itself). */
+    stationRadiusM: 60,
+    /** After Nominatim refuses or fails, it is left alone for this long and Photon answers. */
+    nominatimCooldownMs: 10 * 60 * 1000,
+    queryMinChars: 2,
+    queryMaxChars: 80,
+    maxResults: 5,
+  },
   /** Longer deviceIds are refused. */
   maxDeviceIdChars: 64,
 
@@ -161,6 +184,10 @@ export const TUNING = {
     testDevicePrefix: 'sim-',
     /** The seeded friends' deviceIds start with this. */
     seedDevicePrefix: 'seed-',
+    /** On the friends map a real person's coordinates are rounded to this: 0.1 degree is city scale. */
+    locationRoundDegrees: 0.1,
+    /** `feed:me` looks this far back for the caller's own latest position. */
+    ownLocationWindowMs: 24 * 60 * 60 * 1000,
   },
   /** Entry titles: how long after the start of morning counts as "sunrise", and of afternoon as "midday". */
   titles: {
@@ -222,8 +249,7 @@ export const TUNING = {
     max: 8,
   },
 
-  /** Seeded friends live in this timezone (hours from UTC). */
-  seedUtcOffsetHours: -8,
+  // Each seeded friend has a home city and UTC offset of their own, in convex/seed.ts.
   /** A seeded friend gets a new play only when their latest one is older than this. */
   seedMinGapMs: 45 * 60 * 1000,
   /** Seeded plays older than this are pruned by the hourly cron. */

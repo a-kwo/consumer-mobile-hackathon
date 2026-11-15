@@ -158,6 +158,20 @@ if (slow.tracks.length > 0 && fast.tracks.length > 0) {
   check(/^https?:\/\//.test(replay.previewUrl ?? ''), 'tracks:preview returns a fresh URL for replay');
 }
 
+console.log('\nplaces by name');
+const fifth = await client.action(anyApi.places.reverse, { lat: 40.7751, lon: -73.9654 });
+check(
+  fifth?.street === '5th Avenue' && fifth?.city === 'New York' && fifth?.setting === 'city',
+  `places:reverse names 5th Avenue: "${fifth?.label}" (${fifth?.setting})`,
+);
+const parks = await client.action(anyApi.places.search, { query: '  Golden Gate Park ' });
+const park = parks[0];
+check(
+  parks.length >= 1 && parks.length <= 5 && park.setting === 'nature' && Math.abs(park.lat - 37.77) < 0.05,
+  `places:search finds "${park?.label}" (${park?.setting}) at ${park?.lat?.toFixed(3)}, ${park?.lon?.toFixed(3)}`,
+);
+check((await client.action(anyApi.places.search, { query: ' a ' })).length === 0, 'a one-letter search returns nothing');
+
 check(coloured > 0, `${coloured} of the picks came with a cover colour`);
 
 const all = [...slow.latencies, ...fast.latencies, ...still.latencies].sort((a, b) => a - b);

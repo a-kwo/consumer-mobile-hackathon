@@ -154,6 +154,12 @@ export const ostEntryV = v.object({
   photoUrl: v.optional(v.string()),
   /** `ost:get` only, when the soundtrack hides its places: the title other people see. */
   publicTitle: v.optional(v.string()),
+  /**
+   * `feed:list` only: where the cue played, when the play has coordinates and the
+   * soundtrack shows its places. A real person's are rounded to city scale.
+   */
+  lat: v.optional(v.number()),
+  lon: v.optional(v.number()),
 });
 export type OstEntry = Infer<typeof ostEntryV>;
 
@@ -187,6 +193,10 @@ export const ostV = v.object({
 });
 export type Ost = Infer<typeof ostV>;
 
+/** A point on the friends map. `label` is a city: "San Francisco", "Tokyo". */
+export const feedLocationV = v.object({ lat: v.number(), lon: v.number(), label: v.string() });
+export type FeedLocation = Infer<typeof feedLocationV>;
+
 export const feedItemV = v.object({
   profile: profileV,
   entries: v.array(ostEntryV),
@@ -200,5 +210,38 @@ export const feedItemV = v.object({
   leadPhotoUrl: v.optional(v.string()),
   /** Every photo of the days in `entries`, oldest first. */
   photoUrls: v.optional(v.array(v.string())),
+  /**
+   * Where the newest day is happening: its latest cue that has coordinates and a
+   * known city. A real person's coordinates are rounded to about 0.1 degree and
+   * the label is never more exact than the city. Absent when the day hides its places.
+   */
+  location: v.optional(feedLocationV),
 });
 export type FeedItem = Infer<typeof feedItemV>;
+
+/** A place by name, from reverse geocoding. `places:reverse` returns this or null. */
+export const placeV = v.object({
+  /** What the app shows: "5th Avenue, New York", "Central Park, New York", or just the city. About 32 characters at most. */
+  label: v.string(),
+  /** The road name alone ("5th Avenue"), for soundtrack entry titles. Null inside a park and where there is no road. */
+  street: v.union(v.string(), v.null()),
+  /** The neighbourhood or suburb, or the park's name when inside a park. */
+  area: v.union(v.string(), v.null()),
+  /** The city or town. */
+  city: v.union(v.string(), v.null()),
+  /** Best guess from the kind of place. Never `indoors`. */
+  setting: settingV,
+});
+export type Place = Infer<typeof placeV>;
+
+/** A place found by name, with where it is. `places:search` returns up to five. */
+export const placeResultV = v.object({
+  label: v.string(),
+  street: v.union(v.string(), v.null()),
+  area: v.union(v.string(), v.null()),
+  city: v.union(v.string(), v.null()),
+  setting: settingV,
+  lat: v.number(),
+  lon: v.number(),
+});
+export type PlaceResult = Infer<typeof placeResultV>;

@@ -118,6 +118,13 @@ export const CONFIG = {
     /** How often the clock-derived local hour is refreshed while sensors are off. */
     clockMs: 60 * 1000,
     placesStorageKey: 'score.places.v1',
+    chosenLocationStorageKey: 'score.location.v1',
+    /** A place lookup or search that has not answered after this long is given up on. */
+    placeLookupTimeoutMs: 10000,
+    /** The label of a device position the backend has no name for. */
+    unnamedLocationLabel: 'Current location',
+    /** Weather fetched for a point counts for a location this close to it. */
+    sameSpotM: 100,
     calendarStorageKey: 'score.calendar.v1',
     /** The calendar is read again this often while it is in use, and whenever the app returns. */
     calendarRefreshMs: 5 * 60 * 1000,

@@ -26,6 +26,7 @@ import { PresetGrid } from '@/components/simulator/presets';
 import { ScenePreview } from '@/components/simulator/scene-preview';
 import { TransportDock } from '@/components/simulator/transport-dock';
 import { UpcomingEvent } from '@/components/simulator/upcoming-event';
+import { WhereYouAre } from '@/components/simulator/where-you-are';
 import {
   useSensing,
   useSession,
@@ -65,12 +66,25 @@ export default function SceneScreen() {
   // Zero unless a replay is playing: then the dock's controls sit above the replay bar.
   const replayInset = useReplayBarInset();
 
-  const { mode, liveAvailable, sim, live, setSim, setMode } = sensing;
+  const { mode, liveAvailable, sim, live, location, setSim, setMode } = sensing;
   const isLive = mode === 'live';
   // The one colour on the page: the playing song's album ink, or plain ink when idle.
   const tint = session.track ? albumInk(session.track.coverColor, INK_MUTED) : undefined;
   const cadence = isLive ? Math.min(MAX_CADENCE, live.cadenceSpm) : sim.cadenceSpm;
   const hour = isLive ? live.localHour : sim.localHour;
+  // With a location set, weather and setting follow it until one is picked by hand.
+  const placeName = location ? (location.street ?? location.area ?? location.city ?? location.label) : null;
+  const weatherNote = isLive
+    ? 'Automatic'
+    : placeName && sim.weatherSource === 'location'
+      ? `From ${placeName}`
+      : null;
+  const settingNote =
+    isLive && sensing.herePlace
+      ? 'From a known place'
+      : !isLive && placeName && sim.settingSource === 'location'
+        ? `From ${placeName}`
+        : null;
 
   // A moment is a hand-set scene, so choosing one also switches to manual.
   const applyPreset = (values: SimValues) => {
@@ -83,6 +97,8 @@ export default function SceneScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]}
         contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         style={styles.scroll}
         testID="sim-scroll">
@@ -125,9 +141,15 @@ export default function SceneScreen() {
           energyBias={session.energyBias}
           mode={mode}
           nudgePicksLeft={session.nudgePicksLeft}
+          placeLabel={location?.label}
           scene={sensing.scene}
           tint={tint}
         />
+
+        <View style={styles.section}>
+          <SectionHeader title="Where you are" />
+          <WhereYouAre sensing={sensing} />
+        </View>
 
         {isLive ? <LiveReadingsCard live={live} permissions={sensing.permissions} /> : null}
 
@@ -172,7 +194,16 @@ export default function SceneScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader detail={isLive ? 'Automatic' : undefined} title="Weather" />
+          <SectionHeader
+            title="Weather"
+            trailing={
+              weatherNote ? (
+                <AppText numberOfLines={1} style={styles.note} testID="sim-weather-source" tone="muted" variant="meta">
+                  {weatherNote}
+                </AppText>
+              ) : null
+            }
+          />
           <OptionChips
             accessibilityLabel="Weather"
             disabled={isLive}
@@ -190,8 +221,14 @@ export default function SceneScreen() {
 
         <View style={styles.section}>
           <SectionHeader
-            detail={isLive && sensing.herePlace ? 'From a known place' : undefined}
             title="Setting"
+            trailing={
+              settingNote ? (
+                <AppText numberOfLines={1} style={styles.note} testID="sim-setting-source" tone="muted" variant="meta">
+                  {settingNote}
+                </AppText>
+              ) : null
+            }
           />
           <OptionChips
             accessibilityLabel="Setting"
@@ -234,6 +271,10 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: space.md,
+  },
+  // A source note beside a section title: it gives way to the title.
+  note: {
+    flexShrink: 1,
   },
   // Sits close under the toggle it explains.
   hint: {

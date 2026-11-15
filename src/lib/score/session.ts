@@ -276,6 +276,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
         nudge: request.nudge,
         energyBias: bias,
         excludeDeezerIds: this.heldIds(),
+        weatherFromLocation: sensed.mode === 'simulated' && sensed.sim.weatherSource === 'location',
       };
 
       let result: PickResult | null = null;

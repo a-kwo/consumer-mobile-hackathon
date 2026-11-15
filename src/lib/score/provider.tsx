@@ -18,6 +18,8 @@ export function ScoreProvider({ children }: { children: ReactNode }) {
   const pick = useAction(api.next.pick);
   const preview = useAction(api.tracks.preview);
   const weather = useAction(api.weather.current);
+  const reversePlace = useAction(api.places.reverse);
+  const searchPlaces = useAction(api.places.search);
   const logPlay = useMutation(api.plays.log);
   const markSkipped = useMutation(api.plays.markSkipped);
   const ensureProfile = useMutation(api.profiles.ensure);
@@ -28,6 +30,8 @@ export function ScoreProvider({ children }: { children: ReactNode }) {
       pick: (args) => pick(args),
       preview: (args) => preview(args),
       weather: (args) => weather(args),
+      reversePlace: (args) => reversePlace(args),
+      searchPlaces: (args) => searchPlaces(args),
       logPlay: (args) => logPlay(args),
       markSkipped: (args) => markSkipped(args),
       ensureProfile: (args) => ensureProfile(args),
@@ -47,7 +51,7 @@ export function ScoreProvider({ children }: { children: ReactNode }) {
         return unsubscribe;
       },
     }),
-    [convex, pick, preview, weather, logPlay, markSkipped, ensureProfile, updateProfile],
+    [convex, pick, preview, weather, reversePlace, searchPlaces, logPlay, markSkipped, ensureProfile, updateProfile],
   );
 
   useEffect(() => {

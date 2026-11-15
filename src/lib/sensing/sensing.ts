@@ -25,7 +25,7 @@ import { Platform } from 'react-native';
 
 import { type ActiveOccasion, type OccasionEvent, isOccasion, nextOccasion } from '../../../convex/lib/occasion';
 import { buildScene } from '../../../convex/lib/scene';
-import { SETTINGS, WEATHERS } from '../../../convex/lib/validators';
+import { type Setting, SETTINGS, type Weather, WEATHERS } from '../../../convex/lib/validators';
 import { TUNING } from '../../../convex/tuning';
 import { reportError, TimerBag } from '../score/async';
 import { CONFIG, MESSAGES } from '../score/config';
@@ -38,10 +38,20 @@ import type {
   SensingMode,
   SensingSnapshot,
   SimValues,
+  SimView,
 } from '../score/types';
 import { CadenceWindow } from './cadence';
 import { calendarAccess, loadCalendarEnabled, readOccasionEvents, storeCalendarEnabled } from './calendar';
 import { liveContext, localHourOf, simulatedContext } from './context';
+import {
+  type LocationStatus,
+  type PlaceResult,
+  type ScoreLocation,
+  loadChosenLocation,
+  placeNameOf,
+  storeChosenLocation,
+  toLocation,
+} from './location';
 import { type Coordinates, distanceMeters, placeNameFrom } from './geo';
 import {
   PLACE_KINDS,
@@ -125,6 +135,25 @@ export class SensingController {
   private weatherAttemptAt = 0;
   private lastWeather: (Coordinates & { at: number }) | null = null;
 
+  // Location by name.
+  /** Set by the user: the device's position found on request, or a chosen place. */
+  private pinned: ScoreLocation | null = null;
+  /** Named from the live sensors' fixes. */
+  private sensed: ScoreLocation | null = null;
+  private locationStatus: LocationStatus = 'idle';
+  /** Bumped by every locate, choose and clear: older lookups are dropped. */
+  private locationEpoch = 0;
+  private placeLookupInFlight = false;
+  /** The user picked the simulator's weather / setting since the location last changed. */
+  private simWeatherPicked = false;
+  private simSettingPicked = false;
+  /** Real weather at the location, for manual mode. */
+  private placeWeather:
+    | (Coordinates & { weather: Weather; temperatureC: number | null; at: number })
+    | null = null;
+  private placeWeatherAttempt: (Coordinates & { at: number }) | null = null;
+  private placeWeatherToken = 0;
+
   // Calendar occasions.
   private calendarEnabled = false;
   private calendarAccess: CalendarAccess = 'unknown';
@@ -176,6 +205,7 @@ export class SensingController {
     this.userChoseMode = true;
     this.mode = mode;
     this.publish();
+    this.maybeFetchPlaceWeather();
     if (mode === 'live') {
       void this.startLive();
       this.maybeReadCalendar(true);
@@ -192,11 +222,14 @@ export class SensingController {
       this.userSetSimHour = true;
     }
     // Unknown values are ignored: `buildScene` has no entry for them.
+    // Picking either one overrides what the location says, until the location changes.
     if (patch.weather !== undefined && WEATHERS.includes(patch.weather)) {
       next.weather = patch.weather;
+      this.simWeatherPicked = true;
     }
     if (patch.setting !== undefined && SETTINGS.includes(patch.setting)) {
       next.setting = patch.setting;
+      this.simSettingPicked = true;
     }
     const setsEvent = patch.occasion !== undefined || patch.minutesUntil !== undefined;
     if (patch.occasion === null || isOccasion(patch.occasion)) next.occasion = patch.occasion;
@@ -215,6 +248,51 @@ export class SensingController {
    */
   readonly setCalendarEnabled = (enabled: boolean): void => {
     void this.switchCalendar(enabled === true);
+  };
+
+  /**
+   * Finds where the device is (asking for location access if needed), names the
+   * spot through the backend and makes it the location, with source 'device'.
+   * In a browser this must be called from a tap. Outcome: `locationStatus`.
+   */
+  readonly locateDevice = (): void => {
+    this.findDevice().catch((error: unknown) => reportError('locate', error));
+  };
+
+  /** Places matching what the user typed. Never rejects: an empty list on any failure. */
+  readonly searchPlaces = async (query: string): Promise<PlaceResult[]> => {
+    const backend = this.deps.getBackend();
+    const wanted = typeof query === 'string' ? query.trim() : '';
+    if (!backend || !wanted) return [];
+    try {
+      const found = await this.timers.withTimeout(
+        backend.searchPlaces({ query: wanted }),
+        CONFIG.sensing.placeLookupTimeoutMs,
+      );
+      return Array.isArray(found) ? found.filter((place) => toLocation(place, 'chosen') !== null) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  /** Makes a place from a search the location, with source 'chosen', and remembers it. */
+  readonly chooseLocation = (place: PlaceResult): void => {
+    const location = toLocation(place, 'chosen');
+    if (!location) return;
+    this.locationEpoch += 1;
+    this.locationStatus = 'idle';
+    this.pin(location);
+    void storeChosenLocation(location);
+  };
+
+  readonly clearLocation = (): void => {
+    this.locationEpoch += 1;
+    this.locationStatus = 'idle';
+    this.sensed = null;
+    // In live mode the next fix names the place afresh.
+    this.lastGeocode = null;
+    this.pin(null);
+    void storeChosenLocation(null);
   };
 
   /** Tags where the phone is right now as a known place. Asks for location access if needed. */
@@ -285,6 +363,7 @@ export class SensingController {
     this.appActive = true;
     this.refreshClock();
     this.maybeReadCalendar(true);
+    this.maybeFetchPlaceWeather();
     // A start that is waiting on a permission prompt turns the sensors on itself.
     if (this.wanted && !this.starting) {
       this.startSensors().catch((error: unknown) => reportError('sensors', error));
@@ -320,15 +399,28 @@ export class SensingController {
     const located =
       this.running || now - this.coordinatesAt <= CONFIG.sensing.location.lastKnownMaxAgeMs;
     const herePlace = located ? placeAt(this.places, this.coordinates) : null;
-    let context =
-      this.mode === 'simulated'
-        ? simulatedContext(this.sim, occasion?.id ?? null)
-        : liveContext(
-            this.live,
-            this.coordinates,
-            herePlace ? PLACE_SETTING[herePlace.kind] : 'any',
-            occasion?.id ?? null,
-          );
+    const location = this.effectiveLocation();
+    let sim = this.effectiveSim(location);
+    let context: SensingSnapshot['context'];
+    if (this.mode === 'simulated') {
+      const fromPlace = sim.weatherSource === 'location' ? this.placeWeather : null;
+      context = simulatedContext(
+        sim,
+        occasion?.id ?? null,
+        location && {
+          lat: location.lat,
+          lon: location.lon,
+          placeName: placeNameOf(location),
+          temperatureC: fromPlace ? fromPlace.temperatureC : null,
+        },
+      );
+    } else {
+      // A place the user tagged wins; else what kind of place the map says this is.
+      const setting: Setting = herePlace ? PLACE_SETTING[herePlace.kind] : (location?.setting ?? 'any');
+      context = liveContext(this.live, this.coordinates, setting, occasion?.id ?? null);
+      const placeName = location ? placeNameOf(location) : null;
+      if (placeName) context.placeName = placeName;
+    }
     let scene = buildScene({
       cadenceSpm: context.cadenceSpm,
       localHour: context.localHour,
@@ -342,16 +434,19 @@ export class SensingController {
     if (previous) {
       context = reuseIfEqual(previous.context, context);
       scene = reuseIfEqual(previous.scene, scene);
+      sim = reuseIfEqual(previous.sim, sim);
       if (occasion && previous.occasion) occasion = reuseIfEqual(previous.occasion, occasion);
     }
     return {
       mode: this.mode,
       liveAvailable: this.liveAvailable,
       permissions: this.permissions,
-      sim: this.sim,
+      sim,
       live: this.live,
       context,
       scene,
+      location,
+      locationStatus: this.locationStatus,
       occasion,
       calendarEnabled: this.calendarEnabled,
       calendarAccess: this.calendarAccess,
@@ -361,6 +456,37 @@ export class SensingController {
       isSavingPlace: this.savingPlace,
       placeNotice: this.placeNotice,
     };
+  }
+
+  /**
+   * The location in effect. Live mode trusts the device only: the sensors'
+   * own position, or one found on request; a chosen place is kept but ignored.
+   * Manual mode uses what the user set, else the last place the sensors named.
+   */
+  private effectiveLocation(): ScoreLocation | null {
+    if (this.mode === 'live') {
+      return this.sensed ?? (this.pinned && this.pinned.source === 'device' ? this.pinned : null);
+    }
+    return this.pinned ?? this.sensed;
+  }
+
+  /** The simulator values in effect: the location's weather and setting until the user picks them. */
+  private effectiveSim(location: ScoreLocation | null): SimView {
+    const weather = location && !this.simWeatherPicked ? this.weatherAt(location) : null;
+    const followsSetting = location !== null && !this.simSettingPicked && location.setting !== 'any';
+    return {
+      ...this.sim,
+      weather: weather ? weather.weather : this.sim.weather,
+      setting: followsSetting ? location.setting : this.sim.setting,
+      weatherSource: weather ? 'location' : 'manual',
+      settingSource: followsSetting ? 'location' : 'manual',
+    };
+  }
+
+  /** The fetched weather, when it is for this location. */
+  private weatherAt(location: ScoreLocation) {
+    const known = this.placeWeather;
+    return known && distanceMeters(known, location) <= CONFIG.sensing.sameSpotM ? known : null;
   }
 
   /** The simulator's event in simulated mode; the calendar's next one in live mode. */
@@ -395,6 +521,7 @@ export class SensingController {
         this.sim = reuseIfEqual(this.sim, { ...this.sim, localHour: quarterHourOf(now) });
       }
       this.maybeReadCalendar();
+      this.maybeFetchPlaceWeather();
       this.publish();
     } catch (error) {
       reportError('clock', error);
@@ -439,8 +566,14 @@ export class SensingController {
     const epoch = this.probeEpoch;
     const stale = () => !this.mounted || epoch !== this.probeEpoch;
 
-    const [places, calendarEnabled] = await Promise.all([loadPlaces(), loadCalendarEnabled()]);
+    const [places, calendarEnabled, chosen] = await Promise.all([
+      loadPlaces(),
+      loadCalendarEnabled(),
+      loadChosenLocation(),
+    ]);
     if (stale()) return;
+    // Anything the user did about the location while storage was being read is newer.
+    if (chosen && this.pinned === null && this.locationEpoch === 0) this.pin(chosen);
     // A place tagged while storage was being read is newer than anything in it.
     if (this.places.length === 0) this.places = places;
     if (calendarEnabled && !this.calendarEnabled) {
@@ -499,6 +632,150 @@ export class SensingController {
       .finally(() => {
         this.calendarReading = false;
         if (this.mounted) this.publish();
+      });
+  }
+
+  // ---------------------------------------------------------------- location by name
+
+  /** Sets (or clears) the user's location. A new location starts with nothing picked over it. */
+  private pin(location: ScoreLocation | null): void {
+    this.pinned = location;
+    this.simWeatherPicked = false;
+    this.simSettingPicked = false;
+    this.publish();
+    this.maybeFetchPlaceWeather();
+  }
+
+  private async findDevice(): Promise<void> {
+    const epoch = ++this.locationEpoch;
+    const superseded = () => epoch !== this.locationEpoch || !this.mounted;
+    const fail = (status: LocationStatus) => {
+      if (superseded()) return;
+      this.locationStatus = status;
+      this.publish();
+    };
+    this.locationStatus = 'locating';
+    this.publish();
+
+    const fix = await this.fixOnce();
+    if (superseded()) return;
+    if (typeof fix === 'string') return fail(fix);
+
+    const backend = this.deps.getBackend();
+    if (!backend) return fail('error');
+    let place: Awaited<ReturnType<Backend['reversePlace']>>;
+    try {
+      place = await this.timers.withTimeout(
+        backend.reversePlace(fix),
+        CONFIG.sensing.placeLookupTimeoutMs,
+      );
+    } catch {
+      return fail('error');
+    }
+    if (superseded()) return;
+    // Nothing on the map there: the position is still worth having, for the weather.
+    const named = place ?? { label: CONFIG.sensing.unnamedLocationLabel };
+    const location = toLocation({ ...named, ...fix }, 'device');
+    if (!location) return fail('error');
+    this.locationStatus = 'idle';
+    this.pin(location);
+    // Device positions are not kept; a stored chosen place would come back over this one.
+    void storeChosenLocation(null);
+  }
+
+  /** One position from the device, or why there is none. Never rejects. */
+  private async fixOnce(): Promise<Coordinates | 'denied' | 'unavailable'> {
+    if (this.running && this.coordinates) return this.coordinates;
+    try {
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (!permission.granted) permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.granted || permission.status === 'denied') {
+        this.setPermissions({ location: permission.granted ? 'granted' : 'denied' });
+      }
+      // In a browser "not granted, not denied" means it asked and no position came back.
+      if (!permission.granted) return permission.status === 'denied' ? 'denied' : 'unavailable';
+    } catch {
+      // Some browsers cannot report the permission; asking for a position asks for it too.
+    }
+    try {
+      const fix = await this.timers.withTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        CONFIG.sensing.placeFixTimeoutMs,
+      );
+      const { latitude, longitude } = fix.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return 'unavailable';
+      this.coordinates = { lat: latitude, lon: longitude };
+      this.coordinatesAt = Date.now();
+      return this.coordinates;
+    } catch (error) {
+      // The browser's own error: code 1 is "permission denied".
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code === 1) {
+        this.setPermissions({ location: 'denied' });
+        return 'denied';
+      }
+      return 'unavailable';
+    }
+  }
+
+  /**
+   * Manual mode: fetches the real weather at the location, when it is set, and
+   * again when that weather is older than the backend's cache. A result for a
+   * location that is no longer the one in effect is dropped.
+   */
+  private maybeFetchPlaceWeather(): void {
+    if (!this.mounted || this.mode !== 'simulated') return;
+    const location = this.effectiveLocation();
+    const backend = this.deps.getBackend();
+    if (!location || !backend) return;
+    const now = Date.now();
+    const known = this.weatherAt(location);
+    if (known && now - known.at < TUNING.weatherCacheMs) return;
+    const tried = this.placeWeatherAttempt;
+    const triedHere = tried !== null && distanceMeters(tried, location) <= CONFIG.sensing.sameSpotM;
+    if (triedHere && now - tried.at < CONFIG.sensing.weatherRetryMs) return;
+
+    const at = { lat: location.lat, lon: location.lon };
+    const token = ++this.placeWeatherToken;
+    this.placeWeatherAttempt = { ...at, at: now };
+    this.timers
+      .withTimeout(backend.weather(at), CONFIG.sensing.weatherTimeoutMs)
+      .then((report) => {
+        // `any` means the backend could not tell: the manual weather stays.
+        if (token !== this.placeWeatherToken || !this.mounted || report.weather === 'any') return;
+        // The location changed while this was on its way: it is weather for somewhere else.
+        const current = this.effectiveLocation();
+        if (!current || distanceMeters(current, at) > CONFIG.sensing.sameSpotM) return;
+        this.placeWeather = { ...at, weather: report.weather, temperatureC: report.temperatureC, at: Date.now() };
+        this.publish();
+      })
+      .catch(() => {
+        // Tried again after the retry interval.
+      });
+  }
+
+  /** Live mode: names the sensors' position through the backend, as the screens show it. */
+  private lookUpSensedPlace(at: Coordinates): void {
+    const backend = this.deps.getBackend();
+    if (!backend || this.placeLookupInFlight) return;
+    const epoch = this.locationEpoch;
+    this.placeLookupInFlight = true;
+    this.timers
+      .withTimeout(backend.reversePlace(at), CONFIG.sensing.placeLookupTimeoutMs)
+      .then((place) => {
+        // Cleared or replaced by the user meanwhile, or the sensors were turned off.
+        if (epoch !== this.locationEpoch || !this.mounted || !place) return;
+        const location = toLocation({ ...place, ...at }, 'device');
+        if (!location) return;
+        this.sensed = location;
+        if (this.lastGeocode) this.lastGeocode.named = true;
+        this.publish();
+      })
+      .catch(() => {
+        // Tried again after the minimum interval.
+      })
+      .finally(() => {
+        this.placeLookupInFlight = false;
       });
   }
 
@@ -748,16 +1025,19 @@ export class SensingController {
   /** Names the place: on the first fix, then after moving, at most once a minute. */
   private maybeGeocode(now: number): void {
     const at = this.coordinates;
-    if (isWeb() || this.geocoding || !at) return;
+    if (this.geocoding || !at) return;
     const last = this.lastGeocode;
     if (last) {
       if (now - last.at < CONFIG.sensing.geocodeMinIntervalMs) return;
       const moved = distanceMeters(last, at) >= CONFIG.sensing.geocodeMinDistanceM;
       if (last.named && !moved) return;
     }
-    this.geocoding = true;
     const attempt = { ...at, at: now, named: false };
     this.lastGeocode = attempt;
+    this.lookUpSensedPlace(at);
+    // The device's own geocoder is the fallback name; browsers have none.
+    if (isWeb()) return;
+    this.geocoding = true;
     Location.reverseGeocodeAsync({ latitude: at.lat, longitude: at.lon })
       .then((results) => {
         const placeName = placeNameFrom(results[0]);
