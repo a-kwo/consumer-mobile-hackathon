@@ -39,9 +39,9 @@ export function feedMeta(item: FeedItem, now: number): string {
 }
 
 /**
- * One friend in the list under the map: who, where and when, and their title
- * or the mood of their day. Tapping it shows them on the map, where their
- * cover, photo and first tracks are. It is a passage on the page, not a card:
+ * One friend in the short list under the globe: who, where and when. Tapping
+ * it turns the globe to them and raises their card, where their cover, title,
+ * mood and tracks are. It is a passage on the page, not a card:
  * entries are separated by hairlines in the list.
  */
 export function FeedCard({
@@ -58,7 +58,7 @@ export function FeedCard({
 
   return (
     <PressableScale
-      accessibilityHint="Shows their day on the map"
+      accessibilityHint="Shows their day on the globe"
       accessibilityLabel={`${profile.displayName}'s soundtrack${
         item.title ? `, ${item.title}` : ''
       }, ${meta}${item.summary ? `, ${item.summary}` : ''}`}
@@ -70,7 +70,7 @@ export function FeedCard({
       scaleTo={0.985}
       style={styles.entry}
       testID={testID}>
-      <Avatar emoji={profile.avatarEmoji} ring={selected} size={40} />
+      <Avatar emoji={profile.avatarEmoji} ring={selected} size={36} />
       <View style={styles.text}>
         <AppText numberOfLines={1} tone="primary" variant="artist">
           {profile.displayName}
@@ -78,15 +78,6 @@ export function FeedCard({
         <AppText numberOfLines={1} variant="meta">
           {meta}
         </AppText>
-        {item.title ? (
-          <AppText numberOfLines={1} testID={`${testID}-title`} variant="entryTitle">
-            {item.title}
-          </AppText>
-        ) : item.summary ? (
-          <AppText numberOfLines={1} testID={`${testID}-mood`} variant="sceneLine">
-            {sentenceCase(item.summary)}
-          </AppText>
-        ) : null}
       </View>
       {playing ? <EqualizerBars playing size={14} /> : null}
       <Icon name="chevron-forward" size={16} tone="muted" />
@@ -102,7 +93,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    paddingVertical: space.md,
+    paddingVertical: space.sm + 2,
   },
   text: {
     flex: 1,

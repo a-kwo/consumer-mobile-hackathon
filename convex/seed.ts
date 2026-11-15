@@ -56,14 +56,15 @@ const STILL = [0, 0] as const;
 
 /**
  * Six friends in six cities, so the map has someone awake at most hours.
- * deviceIds must start with TUNING.feed.seedDevicePrefix. Offsets are the
+ * deviceIds must start with TUNING.feed.seedDevicePrefix, and stay as they are
+ * when a friend is renamed: the id is what ties a friend to their plays. Offsets are the
  * cities' standard time.
  */
 const PERSONAS: readonly Persona[] = [
   {
     // A night owl who walks in the rain.
     deviceId: 'seed-mira',
-    displayName: 'Mira',
+    displayName: 'Rosalie',
     avatarEmoji: '🌙',
     home: { city: 'London', lat: 51.5246, lon: -0.0716, utcOffsetHours: 0 },
     ostTitle: 'The long way home',
@@ -79,7 +80,7 @@ const PERSONAS: readonly Persona[] = [
   {
     // A morning runner.
     deviceId: 'seed-theo',
-    displayName: 'Theo',
+    displayName: 'Tristan',
     avatarEmoji: '🌅',
     home: { city: 'San Francisco', lat: 37.7699, lon: -122.4469, utcOffsetHours: -8 },
     ostTitle: 'First light',
@@ -97,7 +98,7 @@ const PERSONAS: readonly Persona[] = [
   {
     // Cafés and commutes.
     deviceId: 'seed-june',
-    displayName: 'June',
+    displayName: 'Stephanie',
     avatarEmoji: '☕',
     home: { city: 'New York', lat: 40.7336, lon: -74.0027, utcOffsetHours: -5 },
     day: [
@@ -114,7 +115,7 @@ const PERSONAS: readonly Persona[] = [
   {
     // Trains by day, backstreets and record shops by night.
     deviceId: 'seed-yuki',
-    displayName: 'Yuki',
+    displayName: 'Ruhaan',
     avatarEmoji: '🎧',
     home: { city: 'Tokyo', lat: 35.6617, lon: 139.668, utcOffsetHours: 9 },
     ostTitle: 'Last train',
@@ -132,7 +133,7 @@ const PERSONAS: readonly Persona[] = [
   {
     // Slow sunny days on the hills above the river.
     deviceId: 'seed-ines',
-    displayName: 'Inês',
+    displayName: 'Elisa',
     avatarEmoji: '🌊',
     home: { city: 'Lisbon', lat: 38.7139, lon: -9.1394, utcOffsetHours: 0 },
     ostTitle: 'Light on the river',
@@ -149,7 +150,7 @@ const PERSONAS: readonly Persona[] = [
   {
     // Early gym, fast walks, a park at dusk.
     deviceId: 'seed-mateo',
-    displayName: 'Mateo',
+    displayName: 'Alex',
     avatarEmoji: '🌵',
     home: { city: 'Mexico City', lat: 19.413, lon: -99.167, utcOffsetHours: -6 },
     day: [
@@ -302,6 +303,10 @@ export const begin = internalMutation({
             .take(TUNING.feed.maxPerProfile),
         ]);
         if (!profile) await ctx.db.insert('profiles', { deviceId, displayName, avatarEmoji, seeded: true });
+        // The personas here are the source of truth: a renamed friend is renamed in place.
+        else if (profile.displayName !== displayName || profile.avatarEmoji !== avatarEmoji) {
+          await ctx.db.patch('profiles', profile._id, { displayName, avatarEmoji });
+        }
         return {
           deviceId,
           latestAt: latest[0]?.startedAt ?? null,

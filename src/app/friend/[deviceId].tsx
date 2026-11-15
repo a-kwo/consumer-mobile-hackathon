@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { FlatList, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
-import { DayMap } from '@/components/map/day-map';
-import { centreOf, stopsOf } from '@/components/map/places';
+import { PlaceGlobe } from '@/components/map/place-globe';
+import { placeOf } from '@/components/map/places';
 import { CUE_TEXT_INSET, CueRow, type CueRowState } from '@/components/ost/cue-row';
 import { mosaicCovers, sentenceCase, toReplayItems } from '@/components/ost/format';
 import { LeadPhoto } from '@/components/ost/lead-photo';
@@ -89,9 +89,8 @@ export default function FriendScreen() {
   const leadPhoto =
     item.leadPhotoUrl && item.leadPhotoUrl !== failedPhoto ? item.leadPhotoUrl : null;
   const photoUrls = item.photoUrls ?? [];
-  // Where the day went, when it says: a still of the friends map with the stops on it.
-  const stops = stopsOf(item);
-  const centre = centreOf(item, stops);
+  // Where they are, when the feed says: a still of the globe turned to the place.
+  const place = placeOf(item);
 
   const play = (index: number) => replay.play(listId, toReplayItems(entries), index);
 
@@ -119,18 +118,16 @@ export default function FriendScreen() {
         <View style={styles.who}>
           <Avatar emoji={profile.avatarEmoji} size={28} />
           <AppText numberOfLines={1} variant="meta">
-            {[centre?.label, feedMeta(item, now)].filter(Boolean).join(' · ')}
+            {[place?.label, feedMeta(item, now)].filter(Boolean).join(' · ')}
           </AppText>
         </View>
       </View>
 
-      {centre && stops.length > 0 ? (
-        <DayMap
-          activeStopIndex={entries.findIndex(isReplaying)}
-          place={centre}
-          stops={stops}
+      {place ? (
+        <PlaceGlobe
+          place={place}
           testID="friend-map"
-          tint={albumInk(entries.at(-1)?.coverColor, colors.inkMuted)}
+          tint={albumInk(entries.at(-1)?.coverColor, colors.ink)}
           width={mapWidth}
         />
       ) : null}

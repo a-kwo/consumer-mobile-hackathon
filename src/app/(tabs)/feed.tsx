@@ -4,8 +4,8 @@ import { FlatList, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { FeedCard } from '@/components/feed/feed-card';
 import { FriendMapCard } from '@/components/feed/friend-map-card';
-import { placeOf, stopsOf, useMyPlace } from '@/components/map/places';
-import { WorldMap, type MapFriend } from '@/components/map/world-map';
+import { FriendsGlobe, type GlobeFriend } from '@/components/map/friends-globe';
+import { placeOf, useMyPlace } from '@/components/map/places';
 import { toReplayItems } from '@/components/ost/format';
 import { useFeed } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
@@ -25,11 +25,13 @@ import { useProfile, useReplay } from '@/lib/score';
 import { colors, layout, radius, space } from '@/theme';
 
 const HOUR = 60 * 60 * 1000;
+/** The globe takes this share of the screen above the tab bar. */
+const GLOBE_SHARE = 0.62;
 
 /**
- * The Friends tab: a map of the world with a marker for each friend, and the
- * same friends as a list underneath. Choosing one (on the map or in the list)
- * zooms the map to them and raises a card with their day.
+ * The Friends tab: a globe with a marker for each friend, and a short list of
+ * the same friends peeking out underneath. Choosing one (on the globe or in
+ * the list) turns the globe to them and raises a card with their day.
  */
 export default function FriendsScreen() {
   const { deviceId, profile } = useProfile();
@@ -41,18 +43,25 @@ export default function FriendsScreen() {
   const replayInset = useReplayBarInset();
   const listInset = useReplayBarListInset();
   const window = useWindowDimensions();
-  const mapWidth = Math.min(window.width, layout.maxContentWidth);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Measured, so the globe can be sized against the real screen and kept clear of the card.
+  const [screenHeight, setScreenHeight] = useState<number | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [cardHeight, setCardHeight] = useState(0);
+
+  const globeWidth = Math.min(window.width, layout.maxContentWidth);
+  // The screen above the tab bar; until it is measured, most of the window.
+  const aboveTabBar = (screenHeight ?? window.height * 0.9) - insets.bottom;
+  const globeHeight = Math.round(aboveTabBar * GLOBE_SHARE);
 
   const friends = (feed ?? []).map((item, index) => {
     const id = item.profile.deviceId;
-    const place = placeOf(item);
-    return { item, id, place, listId: `feed:${id}`, number: index + 1 };
+    return { item, id, place: placeOf(item), listId: `feed:${id}`, number: index + 1 };
   });
   const selected = friends.find((friend) => friend.id === selectedId) ?? null;
 
-  const markers: MapFriend[] = friends.flatMap((friend) =>
+  const markers: GlobeFriend[] = friends.flatMap((friend) =>
     friend.place
       ? [
           {
@@ -70,10 +79,9 @@ export default function FriendsScreen() {
       : []
   );
 
-  const stops = selected ? stopsOf(selected.item) : [];
   const playingSelected = !!selected && replay.listId === selected.listId;
   // The replay holds a snapshot of the list, so the playing track is matched on the item itself.
-  const activeStopIndex =
+  const playingIndex =
     playingSelected && selected
       ? selected.item.entries.findIndex(
           (entry) =>
@@ -87,13 +95,21 @@ export default function FriendsScreen() {
     else replay.play(selected.listId, toReplayItems(selected.item.entries), 0);
   };
 
+  // How far the raised card reaches up over the globe.
+  const cardBottom = insets.bottom + space.sm + replayInset;
+  const cardTop = (screenHeight ?? 0) - cardBottom - cardHeight;
+  const coveredBottom =
+    selected && screenHeight !== null && cardHeight > 0
+      ? Math.max(0, headerHeight + globeHeight - cardTop)
+      : 0;
+
   const empty =
     feed === undefined ? (
-      <TracklistSkeleton rows={3} testID="feed-loading" />
+      <TracklistSkeleton rows={2} testID="feed-loading" />
     ) : (
       <EmptyState
         fill={false}
-        message="When friends score their day, they appear on the map and in this list."
+        message="When friends score their day, they appear on the globe and in this list."
         testID="feed-empty"
         title="No soundtracks yet"
       />
@@ -102,92 +118,105 @@ export default function FriendsScreen() {
   return (
     <TabBarProbe>
       <Screen edges="none" padded={false} testID="feed-screen">
-        <View style={[styles.header, { paddingTop: insets.top + space.md }]}>
-          <View style={styles.topBar}>
-            <AppText variant="wordmark">Score</AppText>
-            <PressableScale
-              accessibilityHint="Edit your name and emoji"
-              accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}
-              onPress={() => router.push('/profile')}
-              pressedStyle={styles.profilePressed}
-              style={styles.profile}
-              testID="profile-edit">
-              <Avatar emoji={profile?.avatarEmoji ?? '🎬'} size={28} style={styles.profileAvatar} />
-              <AppText numberOfLines={1} style={styles.profileName} variant="button">
-                {profile?.displayName ?? 'You'}
-              </AppText>
-            </PressableScale>
+        <View
+          onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}
+          style={styles.fill}>
+          <View
+            onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
+            style={[styles.header, { paddingTop: insets.top + space.sm }]}>
+            <View style={styles.topBar}>
+              <AppText variant="wordmark">Score</AppText>
+              <PressableScale
+                accessibilityHint="Edit your name and emoji"
+                accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}
+                onPress={() => router.push('/profile')}
+                pressedStyle={styles.profilePressed}
+                style={styles.profile}
+                testID="profile-edit">
+                <Avatar
+                  emoji={profile?.avatarEmoji ?? '🎬'}
+                  size={28}
+                  style={styles.profileAvatar}
+                />
+                <AppText numberOfLines={1} style={styles.profileName} variant="button">
+                  {profile?.displayName ?? 'You'}
+                </AppText>
+              </PressableScale>
+            </View>
+            <AppText accessibilityRole="header" style={styles.title} variant="screenTitle">
+              Other people’s days
+            </AppText>
           </View>
-          <AppText accessibilityRole="header" variant="screenTitle">
-            Other people’s days
-          </AppText>
-        </View>
 
-        <View style={styles.map}>
-          <Divider />
-          <WorldMap
-            activeStopIndex={activeStopIndex >= 0 ? activeStopIndex : null}
-            friends={markers}
-            me={me}
-            onSelect={setSelectedId}
-            selectedId={selected?.place ? selected.id : null}
-            stops={stops}
-            testID="feed-map"
-            width={mapWidth}
-          />
-          <Divider />
-        </View>
-
-        <FlatList
-          ItemSeparatorComponent={Divider}
-          ListEmptyComponent={empty}
-          contentContainerStyle={{
-            paddingBottom:
-              insets.bottom + layout.tabBarClearance + layout.scrollEndPadding + listInset,
-            paddingHorizontal: layout.screenPadding,
-          }}
-          contentInsetAdjustmentBehavior="never"
-          data={friends}
-          keyExtractor={(friend) => friend.id}
-          renderItem={({ item: friend }) => (
-            <FeedCard
-              item={friend.item}
-              now={now}
-              onPress={() => setSelectedId(friend.id === selectedId ? null : friend.id)}
-              placeLabel={friend.place?.label}
-              playing={replay.listId === friend.listId}
-              selected={friend.id === selectedId}
-              testID={`feed-card-${friend.number}`}
+          <View style={styles.globe}>
+            <FriendsGlobe
+              coveredBottom={coveredBottom}
+              friends={markers}
+              height={globeHeight}
+              me={me}
+              onSelect={setSelectedId}
+              selectedId={selected?.place ? selected.id : null}
+              testID="feed-map"
+              width={globeWidth}
             />
-          )}
-          showsVerticalScrollIndicator={false}
-          style={styles.list}
-          testID="feed-list"
-        />
+          </View>
+          <Divider />
 
-        <FriendMapCard
-          item={selected?.item ?? null}
-          now={now}
-          onClose={() => setSelectedId(null)}
-          onOpen={() => {
-            if (!selected) return;
-            router.push({ pathname: '/friend/[deviceId]', params: { deviceId: selected.id } });
-          }}
-          onPlay={togglePlay}
-          placeLabel={selected?.place?.label}
-          playing={playingSelected}
-          style={{ bottom: insets.bottom + space.sm + replayInset }}
-        />
+          <FlatList
+            ItemSeparatorComponent={Divider}
+            ListEmptyComponent={empty}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + layout.tabBarClearance + listInset,
+              paddingHorizontal: layout.screenPadding,
+            }}
+            contentInsetAdjustmentBehavior="never"
+            data={friends}
+            keyExtractor={(friend) => friend.id}
+            renderItem={({ item: friend }) => (
+              <FeedCard
+                item={friend.item}
+                now={now}
+                onPress={() => setSelectedId(friend.id === selectedId ? null : friend.id)}
+                placeLabel={friend.place?.label}
+                playing={replay.listId === friend.listId}
+                selected={friend.id === selectedId}
+                testID={`feed-card-${friend.number}`}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.fill}
+            testID="feed-list"
+          />
+
+          <FriendMapCard
+            item={selected?.item ?? null}
+            now={now}
+            onClose={() => setSelectedId(null)}
+            onHeight={setCardHeight}
+            onOpen={() => {
+              if (!selected) return;
+              router.push({ pathname: '/friend/[deviceId]', params: { deviceId: selected.id } });
+            }}
+            onPlay={togglePlay}
+            placeLabel={selected?.place?.label}
+            playing={playingSelected}
+            playingIndex={playingIndex >= 0 ? playingIndex : null}
+            style={{ bottom: cardBottom }}
+          />
+        </View>
       </Screen>
     </TabBarProbe>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   header: {
-    gap: space.md,
+    gap: space.xs,
     paddingHorizontal: layout.screenPadding,
-    paddingBottom: space.lg,
+    paddingBottom: space.xs,
   },
   topBar: {
     flexDirection: 'row',
@@ -195,6 +224,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space.md,
     minHeight: layout.minTouch,
+  },
+  // The title is kept small here: the globe is the headline.
+  title: {
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.24,
   },
   profile: {
     flexDirection: 'row',
@@ -216,10 +251,7 @@ const styles = StyleSheet.create({
   profileName: {
     flexShrink: 1,
   },
-  map: {
+  globe: {
     alignItems: 'center',
-  },
-  list: {
-    flex: 1,
   },
 });

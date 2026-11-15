@@ -1,14 +1,11 @@
 /**
- * Profile names and avatars. There is no sign-up: a device gets a pleasant
- * generated name ("Quiet Otter") that is always the same for the same deviceId.
+ * Profile names and avatars. There is no sign-up: a new profile gets the
+ * default name and an emoji picked by its deviceId, and its owner can change both.
  */
 import { hashString } from './hash';
 
-const ADJECTIVES = [
-  'Quiet', 'Gentle', 'Mellow', 'Golden', 'Velvet', 'Amber', 'Misty', 'Sunny', 'Lucky', 'Cosmic',
-  'Dusky', 'Breezy', 'Starry', 'Dreamy', 'Mossy', 'Sleepy', 'Bright', 'Wandering', 'Midnight', 'Silver',
-  'Copper', 'Indigo', 'Lunar', 'Honey', 'Cedar', 'Coral', 'Hazel', 'Paper', 'Electric', 'Neon',
-] as const;
+/** What a new profile is called until its owner renames it. */
+export const DEFAULT_DISPLAY_NAME = 'Aiden';
 
 const ANIMALS = [
   ['Otter', '🦦'], ['Fox', '🦊'], ['Owl', '🦉'], ['Whale', '🐋'], ['Koala', '🐨'], ['Panda', '🐼'],
@@ -20,11 +17,10 @@ const ANIMALS = [
 
 export const MAX_DISPLAY_NAME_CHARS = 24;
 
-/** A two-word name and a matching emoji, deterministic from the deviceId. */
+/** The default name, and an emoji that is always the same for the same deviceId. */
 export function generatedProfile(deviceId: string): { displayName: string; avatarEmoji: string } {
-  const adjective = ADJECTIVES[hashString(`adjective:${deviceId}`) % ADJECTIVES.length];
-  const [animal, avatarEmoji] = ANIMALS[hashString(`animal:${deviceId}`) % ANIMALS.length];
-  return { displayName: `${adjective} ${animal}`, avatarEmoji };
+  const [, avatarEmoji] = ANIMALS[hashString(`animal:${deviceId}`) % ANIMALS.length];
+  return { displayName: DEFAULT_DISPLAY_NAME, avatarEmoji };
 }
 
 /** Collapses whitespace and cuts to 24 characters. Null when nothing printable is left. */

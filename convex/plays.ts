@@ -152,7 +152,7 @@ export const markSkipped = mutation({
 });
 
 /**
- * Deletes the plays of test devices: every deviceId starting with `prefix`.
+ * Deletes the plays and profiles of test devices: every deviceId starting with `prefix`.
  * Run by hand after smoke tests, e.g. `npx convex run plays:purgeTestDevices '{"prefix":"sim-smoke-"}'`.
  * Refuses a prefix that could match real or seeded devices.
  */
@@ -169,6 +169,15 @@ export const purgeTestDevices = internalMutation({
       .withIndex('by_device_startedAt', (q) => q.gte('deviceId', prefix).lt('deviceId', `${prefix}\uffff`))
       .take(limit);
     await Promise.all(rows.map((row) => ctx.db.delete('plays', row._id)));
-    return { deleted: rows.length, more: rows.length === limit };
+    // Their profiles go too, once the plays are gone.
+    const profiles =
+      rows.length === limit
+        ? []
+        : await ctx.db
+            .query('profiles')
+            .withIndex('by_deviceId', (q) => q.gte('deviceId', prefix).lt('deviceId', `${prefix}\uffff`))
+            .take(limit);
+    await Promise.all(profiles.map((profile) => ctx.db.delete('profiles', profile._id)));
+    return { deleted: rows.length + profiles.length, more: rows.length === limit || profiles.length === limit };
   },
 });

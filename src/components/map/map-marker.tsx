@@ -1,23 +1,19 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   css,
   useAnimatedStyle,
   useReducedMotion,
   type SharedValue,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
-import { AppText, EqualizerBars, haptics } from '@/components/ui';
-import { colors, fonts, motion, shadows } from '@/theme';
-
-import type { MapPoint } from './projection';
+import { AppText, EqualizerBars, haptics } from "@/components/ui";
+import { colors, fonts, paperAlpha, shadows } from "@/theme";
 
 export type MapMarkerProps = {
-  /** True position on the map, in map points. */
-  point: MapPoint;
-  /** Where the avatar is drawn at world scale when neighbours crowd it, as an offset in map points. */
-  offset: MapPoint;
-  /** The map's zoom. The marker keeps its size on screen whatever this is. */
-  scale: SharedValue<number>;
+  /** Where the avatar is drawn when neighbours crowd it, as an offset in points on screen. */
+  offset: { x: number; y: number };
+  /** The globe's zoom: the crowding offset eases away as it grows. */
+  zoom: SharedValue<number>;
   emoji: string;
   name: string;
   /** Second line under the name while selected: the city. */
@@ -25,8 +21,6 @@ export type MapMarkerProps = {
   /** Colour of the ring: the friend's album ink. */
   tint?: string;
   selected?: boolean;
-  /** Lift the avatar this many points above its position, to sit on top of the day's route. */
-  lift?: number;
   /** Their soundtrack changed within the hour: the ring pulses gently. */
   recent?: boolean;
   /** Their soundtrack is the one being replayed. */
@@ -39,28 +33,25 @@ const SIZE = 30;
 const SELECTED_SIZE = 40;
 
 const pulse = css.keyframes({
-  '0%': { transform: [{ scale: 1 }], opacity: 0.5 },
-  '70%': { transform: [{ scale: 1.9 }], opacity: 0 },
-  '100%': { transform: [{ scale: 1.9 }], opacity: 0 },
+  "0%": { transform: [{ scale: 1 }], opacity: 0.5 },
+  "70%": { transform: [{ scale: 1.9 }], opacity: 0 },
+  "100%": { transform: [{ scale: 1.9 }], opacity: 0 },
 });
 
 /**
- * A friend on the map: their emoji in a paper circle with an ink ring, their
- * name underneath, and a grain of ink on the exact spot. The whole marker
- * holds its size while the map zooms. At world scale it may sit a little off
- * its spot so neighbours stay visible; a hairline ties it back, and it slides
- * home as the map zooms in.
+ * A friend on the globe: their emoji in a paper circle with an ink ring, their
+ * name underneath, and a grain of ink on the exact spot. Put it inside a
+ * `GlobePin`. It may sit a little off its spot so neighbours stay visible; a
+ * hairline ties it back, and it slides home as the globe zooms in.
  */
 export function MapMarker({
-  point,
   offset,
-  scale,
+  zoom,
   emoji,
   name,
   detail,
   tint = colors.ink,
   selected = false,
-  lift = 0,
   recent = false,
   playing = false,
   onPress,
@@ -71,42 +62,32 @@ export function MapMarker({
   const reach = Math.hypot(offset.x, offset.y);
   const angle = Math.atan2(offset.y, offset.x);
 
-  // Hold a constant size on screen: undo the map's zoom.
-  const anchor = useAnimatedStyle(() => ({ transform: [{ scale: 1 / scale.get() }] }));
-  // The crowding offset (in points on screen) fades out between 1x and 2.5x zoom.
+  // The crowding offset fades out between 1x and 2x zoom.
   const tether = useAnimatedStyle(() => {
-    const zoom = scale.get();
-    const keep = Math.max(0, Math.min(1, (2.5 - zoom) / 1.5));
+    const keep = Math.max(0, Math.min(1, 2 - zoom.get()));
     return { transform: [{ rotate: `${angle}rad` }, { scaleX: keep }] };
   });
   const body = useAnimatedStyle(() => {
-    const zoom = scale.get();
-    const keep = Math.max(0, Math.min(1, (2.5 - zoom) / 1.5));
+    const keep = Math.max(0, Math.min(1, 2 - zoom.get()));
     return {
-      transform: [{ translateX: offset.x * keep }, { translateY: offset.y * keep }],
+      transform: [
+        { translateX: offset.x * keep },
+        { translateY: offset.y * keep },
+      ],
     };
   });
 
   return (
-    <Animated.View
-      style={[styles.anchor, { left: point.x, top: point.y, zIndex: selected ? 3 : 1 }, anchor]}>
+    <View style={styles.anchor}>
       {reach > 4 ? (
         <Animated.View style={[styles.tether, { width: reach }, tether]} />
       ) : null}
-      {/* Under the day's route the exact spot is the route's own centre. */}
-      {lift > 0 ? null : <View style={styles.spot} />}
+      <View style={styles.spot} />
       <Animated.View style={[styles.body, body]}>
-        <Animated.View
-          style={{
-            alignItems: 'center',
-            transform: [{ translateY: -lift }],
-            transitionProperty: 'transform',
-            transitionDuration: reduceMotion ? 0 : motion.duration.slow,
-            transitionTimingFunction: motion.easing.standard,
-          }}>
+        <View style={styles.centred}>
           <Pressable
             accessibilityHint="Shows their day on the map"
-            accessibilityLabel={`${name}${detail ? `, ${detail}` : ''}`}
+            accessibilityLabel={`${name}${detail ? `, ${detail}` : ""}`}
             accessibilityRole="button"
             accessibilityState={{ selected }}
             hitSlop={8}
@@ -115,7 +96,8 @@ export function MapMarker({
               onPress();
             }}
             style={styles.press}
-            testID={testID}>
+            testID={testID}
+          >
             <View style={{ width: size, height: size }}>
               {recent && !reduceMotion ? (
                 <Animated.View
@@ -126,8 +108,8 @@ export function MapMarker({
                       borderColor: tint,
                       animationName: pulse,
                       animationDuration: 2400,
-                      animationIterationCount: 'infinite',
-                      animationTimingFunction: 'ease-out',
+                      animationIterationCount: "infinite",
+                      animationTimingFunction: "ease-out",
                     },
                   ]}
                 />
@@ -135,11 +117,20 @@ export function MapMarker({
               <View
                 style={[
                   styles.avatar,
-                  { borderRadius: size / 2, borderColor: tint, borderWidth: selected ? 2 : 1.5 },
-                ]}>
+                  {
+                    borderRadius: size / 2,
+                    borderColor: tint,
+                    borderWidth: selected ? 2 : 1.5,
+                  },
+                ]}
+              >
                 <Text
                   allowFontScaling={false}
-                  style={[styles.emoji, { fontSize: size * 0.5, lineHeight: size * 0.66 }]}>
+                  style={[
+                    styles.emoji,
+                    { fontSize: size * 0.5, lineHeight: size * 0.66 },
+                  ]}
+                >
                   {emoji}
                 </Text>
               </View>
@@ -149,65 +140,70 @@ export function MapMarker({
                 </View>
               ) : null}
             </View>
-            {/* Lifted above the route there is no room for words; the card below names them. */}
-            <View style={[styles.label, lift > 0 ? styles.hidden : null]}>
-              <AppText
-                allowFontScaling={false}
-                numberOfLines={1}
-                style={[styles.name, selected ? styles.nameSelected : null]}>
-                {name}
-              </AppText>
-              {selected && detail ? (
-                <AppText allowFontScaling={false} numberOfLines={1} style={styles.detail}>
-                  {detail}
+            <View style={styles.label}>
+              <View style={styles.plate}>
+                <AppText
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  style={[styles.name, selected ? styles.nameSelected : null]}
+                >
+                  {name}
                 </AppText>
-              ) : null}
+                {selected && detail ? (
+                  <AppText
+                    allowFontScaling={false}
+                    numberOfLines={1}
+                    style={styles.detail}
+                  >
+                    {detail}
+                  </AppText>
+                ) : null}
+              </View>
             </View>
           </Pressable>
-        </Animated.View>
+        </View>
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
 /** Your own position: a solid grain of ink with a paper edge, and "You". */
-export function MeMarker({
-  point,
-  scale,
-  label,
-}: {
-  point: MapPoint;
-  scale: SharedValue<number>;
-  label: string;
-}) {
-  const anchor = useAnimatedStyle(() => ({ transform: [{ scale: 1 / scale.get() }] }));
+export function MeMarker({ label }: { label: string }) {
   return (
-    <Animated.View
-      accessibilityLabel={`You${label ? `, ${label}` : ''}`}
+    <View
+      accessibilityLabel={`You${label ? `, ${label}` : ""}`}
       accessible
-      style={[styles.anchor, { left: point.x, top: point.y, zIndex: 0 }, anchor]}
-      testID="feed-marker-me">
+      testID="feed-marker-me"
+    >
       <View style={styles.body}>
         <View style={styles.me} />
       </View>
       <View style={styles.meLabel}>
-        <AppText allowFontScaling={false} numberOfLines={1} style={styles.name}>
-          You
-        </AppText>
+        <View style={styles.plate}>
+          <AppText
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={styles.name}
+          >
+            You
+          </AppText>
+        </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   // A zero-size box on the exact spot; everything is drawn around it.
   anchor: {
-    position: 'absolute',
     width: 0,
     height: 0,
   },
+  centred: {
+    alignItems: "center",
+  },
   spot: {
-    position: 'absolute',
+    position: "absolute",
     left: -2,
     top: -2,
     width: 4,
@@ -216,25 +212,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
   },
   tether: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: -0.5,
     height: 1,
     backgroundColor: colors.inkMuted,
-    transformOrigin: 'left center',
+    transformOrigin: "left center",
   },
   // Zero-size and centred: whatever it holds is centred on the spot.
   body: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: 0,
     width: 0,
     height: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   press: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   halo: {
     ...StyleSheet.absoluteFill,
@@ -242,18 +238,18 @@ const styles = StyleSheet.create({
   },
   avatar: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.paperRaised,
     ...shadows.raised,
   },
   emoji: {
-    textAlign: 'center',
+    textAlign: "center",
     includeFontPadding: false,
     color: colors.ink,
   },
   playing: {
-    position: 'absolute',
+    position: "absolute",
     right: -7,
     top: -5,
     paddingHorizontal: 3,
@@ -263,21 +259,26 @@ const styles = StyleSheet.create({
   },
   // The label hangs under the avatar without moving it off its spot.
   label: {
-    position: 'absolute',
-    top: '100%',
+    position: "absolute",
+    top: "100%",
     marginTop: 2,
     width: 110,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  hidden: {
-    opacity: 0,
+  // A wash of paper behind the words, so the land's grains do not run through them.
+  plate: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 7,
+    backgroundColor: paperAlpha(0.82),
+    alignItems: "center",
   },
   name: {
     fontFamily: fonts.sansMedium,
     fontSize: 11,
     lineHeight: 14,
     color: colors.ink,
-    textAlign: 'center',
+    textAlign: "center",
   },
   nameSelected: {
     fontFamily: fonts.sansSemiBold,
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     color: colors.inkMuted,
-    textAlign: 'center',
+    textAlign: "center",
   },
   me: {
     width: 12,
@@ -301,10 +302,10 @@ const styles = StyleSheet.create({
     ...shadows.raised,
   },
   meLabel: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     left: -30,
     width: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
