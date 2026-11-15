@@ -11,7 +11,7 @@
  * itself is started again.
  */
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { Crossfader } from '../audio/crossfader';
 import { canUnloadPlayers, configureAudioMode, createDeckPlayer } from '../audio/player';
@@ -24,6 +24,8 @@ import { ReplayController } from './replay';
 import { SessionController } from './session';
 import { Store } from './store';
 import type { Backend, PlaybackProgress } from './types';
+
+const isWeb = () => Platform.OS === 'web';
 
 const NOT_PLAYING: PlaybackProgress = { positionMs: 0, durationMs: 0, isPlaying: false };
 
@@ -78,7 +80,7 @@ export class ScoreEngine {
   mount(): void {
     if (this.mounted) return;
     this.mounted = true;
-    this.foreground = AppState.currentState !== 'background';
+    this.foreground = isWeb() || AppState.currentState !== 'background';
 
     const appState = AppState.addEventListener('change', this.onAppState);
     this.subscriptions = [
@@ -143,7 +145,9 @@ export class ScoreEngine {
   private readonly onAppState = (state: AppStateStatus): void => {
     // "inactive" (a system sheet, the app switcher) still plays audio: only
     // "background" counts as away.
-    const foreground = state !== 'background';
+    // A hidden browser tab reports "background" too, but it keeps playing and
+    // nothing pauses its audio, so on web the engine never stands down.
+    const foreground = isWeb() || state !== 'background';
     if (foreground === this.foreground) return;
     this.foreground = foreground;
     if (foreground) this.sensing.resume();

@@ -105,8 +105,8 @@ export default function ShareScreen() {
 
       try {
         await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          UTI: 'public.png',
+          mimeType: 'image/jpeg',
+          UTI: 'public.jpeg',
           dialogTitle: `Original soundtrack, ${formatLongDate(dayStart)}`,
         });
       } catch {

@@ -124,9 +124,9 @@ export const TUNING = {
     /**
      * Where to ask for a preview URL, in order. Deezer answers HTTP 403 to Convex's
      * servers (measured Nov 15), so today every preview really comes from iTunes
-     * and the Deezer attempt costs 10 to 30 ms. Put 'itunes' first to skip that.
+     * and iTunes is asked first. Deezer stays as the fallback.
      */
-    sources: ['deezer', 'itunes'],
+    sources: ['itunes', 'deezer'],
     /** Per-request timeout. */
     timeoutMs: 2500,
     /** Candidates tried before giving up with `no_preview`. */
@@ -152,7 +152,15 @@ export const TUNING = {
     seedDevicePrefix: 'seed-',
   },
   /** Entry titles: how long after the start of morning counts as "sunrise", and of afternoon as "midday". */
-  titles: { sunriseHours: 3, middayHours: 2, maxPlaceChars: 40 },
+  titles: {
+    sunriseHours: 3,
+    middayHours: 2,
+    maxPlaceChars: 40,
+    /** A title, clock included, should fit one line: phrasings longer than this are passed over. */
+    maxChars: 34,
+    /** A new title avoids the lead and the ending of this many of the device's latest titles. */
+    avoidRecent: 3,
+  },
 
   /** Seeded friends live in this timezone (hours from UTC). */
   seedUtcOffsetHours: -8,

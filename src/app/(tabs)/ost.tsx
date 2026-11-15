@@ -17,7 +17,7 @@ import {
 import { useOst } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
-import { TabBarProbe, useReplayBarInset } from '@/components/replay';
+import { TabBarProbe, useReplayBarListInset } from '@/components/replay';
 import {
   AppText,
   CoverMosaic,
@@ -40,7 +40,7 @@ export default function SoundtrackScreen() {
   const replay = useReplay();
   const session = useSession();
   const insets = useScreenInsets();
-  const replayInset = useReplayBarInset();
+  const replayInset = useReplayBarListInset();
 
   // 0 is today, -1 yesterday, and so on. Never positive.
   const [dayOffset, setDayOffset] = useState(0);

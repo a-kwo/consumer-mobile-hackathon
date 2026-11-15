@@ -180,6 +180,8 @@ def process(deezer_id: int, url: str) -> dict:
                 if response.status_code == 200 and len(response.content) > 20000:
                     content = response.content
                     break
+                if response.status_code == 200:  # a stub of a second or two, not a real preview
+                    return {"id": deezer_id, "error": "clip too short"}
                 if response.status_code in (403, 404, 410):
                     return {"id": deezer_id, "error": f"preview HTTP {response.status_code}"}
             except requests.RequestException:

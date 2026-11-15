@@ -102,24 +102,29 @@ export class ReplayController implements TransportDelegate<ReplayMeta, null> {
     const backend = this.deps.getBackend();
     if (!backend) return null;
 
+    let unreachable = 0;
     while (this.cursor < this.items.length) {
       const index = this.cursor;
       const item = this.items[index];
       this.cursor = index + 1;
 
-      let previewUrl: string | null;
+      let previewUrl: string | null = null;
       try {
         const result = await this.timers.withTimeout(
           backend.preview({ deezerId: item.deezerId }),
           CONFIG.replay.previewTimeoutMs,
         );
         previewUrl = result.previewUrl;
+        unreachable = 0;
       } catch {
-        // Offline: skipping ahead would only fail the same way for every item.
-        return null;
+        // The lookup failed or timed out: this item is unplayable, try the next.
+        // Several in a row means the backend is unreachable; stop there rather
+        // than wait out a timeout for every item of a long list.
+        unreachable += 1;
       }
       if (signal.cancelled || run !== this.run) return null;
       if (previewUrl) return { url: previewUrl, meta: { index, item } };
+      if (unreachable >= CONFIG.replay.giveUpAfterUnreachable) return null;
     }
     return null;
   }

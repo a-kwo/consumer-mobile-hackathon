@@ -113,6 +113,15 @@ export function useReplayBarInset(): number {
 }
 
 /**
+ * Bottom padding for a scrolling list under the replay bar: the bar itself
+ * plus room for the last row to rest clear of it. Zero while idle.
+ */
+export function useReplayBarListInset(): number {
+  const inset = useReplayBarInset();
+  return inset === 0 ? 0 : inset + space.xl;
+}
+
+/**
  * Wrap a tab screen in this so the replay bar knows where the tab bar starts.
  * It measures; it draws nothing of its own.
  */

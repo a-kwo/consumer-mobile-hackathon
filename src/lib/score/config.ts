@@ -70,7 +70,10 @@ export const CONFIG = {
   },
 
   replay: {
-    previewTimeoutMs: 10000,
+    /** A preview lookup that has not answered after this long makes the item unplayable. */
+    previewTimeoutMs: 8000,
+    /** This many failed or timed-out lookups in a row end the replay. */
+    giveUpAfterUnreachable: 3,
   },
 
   sensing: {

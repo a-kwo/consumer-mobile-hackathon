@@ -1,3 +1,4 @@
+import { useReplayBarInset } from '@/components/replay';
 import { Screen } from '@/components/ui';
 import { NowIdleView } from '@/components/now/now-idle-view';
 import { NowPlayingView } from '@/components/now/now-playing-view';
@@ -12,12 +13,17 @@ export default function NowScreen() {
   const session = useSession();
   const sensing = useSensing();
   const replay = useReplay();
+  // Zero unless a replay is playing: then the content ends above the replay bar.
+  const replayInset = useReplayBarInset();
 
   const active = session.status !== 'idle';
   const coverUrl = active ? session.track?.coverUrl : replay.item?.coverUrl;
 
   return (
-    <Screen coverUrl={coverUrl ?? null} testID="now-screen">
+    <Screen
+      contentStyle={{ paddingBottom: replayInset }}
+      coverUrl={coverUrl ?? null}
+      testID="now-screen">
       {active ? (
         <NowPlayingView sensing={sensing} session={session} />
       ) : (

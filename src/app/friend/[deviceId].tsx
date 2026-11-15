@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { feedMeta } from '@/components/feed/feed-card';
@@ -7,7 +8,7 @@ import { cueNumber, mosaicCovers, toReplayItems } from '@/components/ost/format'
 import { useFeed } from '@/components/ost/queries';
 import { TracklistSkeleton } from '@/components/ost/tracklist-skeleton';
 import { useMinuteClock } from '@/components/ost/use-clock';
-import { ReplayBar, useReplayBarInset } from '@/components/replay';
+import { ReplayBar, useReplayBarInset, useReplayBarListInset } from '@/components/replay';
 import {
   AppText,
   Avatar,
@@ -22,7 +23,7 @@ import {
   useScreenInsets,
 } from '@/components/ui';
 import { useProfile, useReplay } from '@/lib/score';
-import { layout, space } from '@/theme';
+import { colors, ink, layout, space } from '@/theme';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -38,7 +39,8 @@ export default function FriendScreen() {
   const feed = useFeed(deviceId);
   const now = useMinuteClock();
   const insets = useScreenInsets();
-  const replayInset = useReplayBarInset();
+  const replayInset = useReplayBarListInset();
+  const barSpace = useReplayBarInset();
 
   const item = feed?.find((candidate) => candidate.profile.deviceId === friendId);
   const listId = `feed:${friendId}`;
@@ -175,6 +177,14 @@ export default function FriendScreen() {
           testID="friend-list"
         />
       </Screen>
+      {barSpace > 0 ? (
+        // No tab bar here, so rows would show through under the bar: fade them into the base.
+        <LinearGradient
+          colors={[ink(0), ink(0.94), colors.bg]}
+          locations={[0, 0.3, 1]}
+          style={[styles.scrim, { height: insets.bottom + barSpace + space.xxl }]}
+        />
+      ) : null}
       <View style={[styles.replayBar, { bottom: insets.bottom + space.sm }]}>
         <ReplayBar style={styles.replayBarCapped} />
       </View>
@@ -228,6 +238,13 @@ const styles = StyleSheet.create({
   section: {
     marginTop: space.xl,
     marginBottom: space.xs,
+  },
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
   },
   replayBar: {
     position: 'absolute',

@@ -4,7 +4,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { FeedCard } from '@/components/feed/feed-card';
 import { useFeed } from '@/components/ost/queries';
 import { useMinuteClock } from '@/components/ost/use-clock';
-import { TabBarProbe, useReplayBarInset } from '@/components/replay';
+import { TabBarProbe, useReplayBarListInset } from '@/components/replay';
 import {
   AppText,
   Avatar,
@@ -24,7 +24,7 @@ export default function FriendsScreen() {
   const feed = useFeed(deviceId);
   const now = useMinuteClock();
   const insets = useScreenInsets();
-  const replayInset = useReplayBarInset();
+  const replayInset = useReplayBarListInset();
 
   const header = (
     <View style={styles.header}>

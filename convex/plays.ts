@@ -41,7 +41,7 @@ function cleanContext(context: PlayContext): PlayContext {
  */
 export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'plays'> | null> {
   if (!play.deviceId || !Number.isFinite(play.startedAt)) return null;
-  const [song, sameMoment] = await Promise.all([
+  const [song, sameMoment, earlier] = await Promise.all([
     ctx.db
       .query('songs')
       .withIndex('by_deezerId', (q) => q.eq('deezerId', play.deezerId))
@@ -50,6 +50,12 @@ export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'p
       .query('plays')
       .withIndex('by_device_startedAt', (q) => q.eq('deviceId', play.deviceId).eq('startedAt', play.startedAt))
       .take(4),
+    // The titles just before this one, so the new title does not repeat them.
+    ctx.db
+      .query('plays')
+      .withIndex('by_device_startedAt', (q) => q.eq('deviceId', play.deviceId).lt('startedAt', play.startedAt))
+      .order('desc')
+      .take(TUNING.titles.avoidRecent),
   ]);
   if (!song) return null;
   const duplicate = sameMoment.find((existing) => existing.deezerId === play.deezerId);
@@ -69,7 +75,10 @@ export async function recordPlay(ctx: MutationCtx, play: NewPlay): Promise<Id<'p
     sceneKey: play.sceneKey.slice(0, MAX_LABEL_CHARS),
     sceneLabel: play.sceneLabel.slice(0, MAX_LABEL_CHARS),
     reason: play.reason.slice(0, MAX_LABEL_CHARS),
-    title: makeTitle(context, song.deezerId, play.startedAt),
+    title: makeTitle(context, song.deezerId, play.startedAt, {
+      mood: song.moods[0],
+      recentTitles: earlier.map((previous) => previous.title),
+    }),
     skipped: false,
   });
 }

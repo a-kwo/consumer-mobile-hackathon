@@ -261,6 +261,10 @@ export class Transport<Meta, Request> {
         this.pending = null;
         this.exhausted = true;
         this.delegate.onChange();
+        // With no song of this sequence playing there is nothing to wait for.
+        // Finishing here, not in the next tick, means it also happens while
+        // the tick is not running (the app is in the background).
+        if (this.currentMeta === null) this.finish();
         return;
       }
 

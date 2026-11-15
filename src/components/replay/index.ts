@@ -4,5 +4,6 @@ export {
   TabBarProbe,
   TabsReplayBar,
   useReplayBarInset,
+  useReplayBarListInset,
 } from './replay-bar';
 export type { ReplayBarProps } from './replay-bar';

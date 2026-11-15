@@ -18,6 +18,7 @@ import {
   formatHourWithTimeOfDay,
 } from '@/components/now/format';
 import { ModeBadge } from '@/components/now/mode-badge';
+import { useReplayBarInset } from '@/components/replay';
 import { LiveReadingsCard } from '@/components/simulator/live-readings';
 import { OptionChips, type Option } from '@/components/simulator/option-chips';
 import { PresetGrid } from '@/components/simulator/presets';
@@ -55,6 +56,8 @@ export default function SimulatorScreen() {
   const sensing = useSensing();
   const session = useSession();
   const insets = useScreenInsets();
+  // Zero unless a replay is playing: then the dock's controls sit above the replay bar.
+  const replayInset = useReplayBarInset();
 
   const { mode, liveAvailable, sim, live, setSim, setMode } = sensing;
   const isLive = mode === 'live';
@@ -191,7 +194,7 @@ export default function SimulatorScreen() {
         </View>
       </ScrollView>
 
-      <TransportDock bottomInset={insets.bottom} previewScene={sensing.scene} session={session} />
+      <TransportDock bottomInset={insets.bottom + replayInset} previewScene={sensing.scene} session={session} />
     </Screen>
   );
 }
