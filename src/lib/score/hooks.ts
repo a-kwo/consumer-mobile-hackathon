@@ -108,8 +108,15 @@ export type SessionApi = {
   /** How many more songs the nudge applies to. */
   nudgePicksLeft: number;
   start(): void;
+  /** Ends the session: music and sensing stop, and the setup returns to 'idle'. */
   stop(): void;
+  /** Pauses in place after a short fade. Acts while 'playing' or 'starting'. */
+  pause(): void;
+  /** Carries on from a pause at the same position. Acts while 'paused'. */
+  resume(): void;
+  /** While paused, resumes first. */
   skip(): void;
+  /** While paused, resumes first. */
   nudge(direction: NudgeDirection): void;
 };
 
@@ -166,6 +173,8 @@ export function useSession(): SessionApi {
     ...snapshot,
     start: session.start,
     stop: session.stop,
+    pause: session.pause,
+    resume: session.resume,
     skip: session.skip,
     nudge: session.nudge,
   };

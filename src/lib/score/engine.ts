@@ -52,7 +52,8 @@ export class ScoreEngine {
 
   constructor() {
     const getBackend = () => this.backend;
-    const isForeground = () => this.mounted && this.foreground;
+    // Nothing may start playing in the background, nor while the user has paused.
+    const isForeground = () => this.mounted && this.foreground && !this.sessionPaused;
     this.audio = new Crossfader({ createPlayer: createDeckPlayer, canUnload: canUnloadPlayers() });
     this.identity = new IdentityController({ loadDeviceId: loadOrCreateDeviceId });
     this.sensing = new SensingController({ getBackend });
@@ -139,8 +140,14 @@ export class ScoreEngine {
     });
   }
 
+  /** The session is running: starting or playing, not paused. */
   private get sessionActive(): boolean {
-    return this.session.store.get().status !== 'idle';
+    const { status } = this.session.store.get();
+    return status === 'starting' || status === 'playing';
+  }
+
+  private get sessionPaused(): boolean {
+    return this.session.store.get().status === 'paused';
   }
 
   private get replayActive(): boolean {
@@ -178,7 +185,9 @@ export class ScoreEngine {
     } else {
       this.stopTick();
     }
-    if (!active) this.progress.set(NOT_PLAYING);
+    // Paused: the position is held, and nothing is playing.
+    if (this.sessionPaused) this.progress.patch({ isPlaying: false });
+    else if (!active) this.progress.set(NOT_PLAYING);
   }
 
   private stopTick(): void {

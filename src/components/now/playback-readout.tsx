@@ -1,6 +1,8 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { NowCover } from '@/components/figure/now-cover';
+import { crossFadeStyle, useCrossFade } from '@/components/scene/motion';
 import { AppText, EqualizerBars, ProgressBar } from '@/components/ui';
 import { albumInk, INK_MUTED } from '@/lib/album-ink';
 import { usePlaybackProgress } from '@/lib/score';
@@ -13,8 +15,8 @@ type ReadoutProps = {
   coverColor?: string | null;
   /** Nothing is audible yet because the first cue is still on its way. */
   waiting: boolean;
-  /** A pick is being fetched or its audio is loading. */
-  loadingNext: boolean;
+  /** The user has paused the song. */
+  paused: boolean;
 };
 
 /**
@@ -24,11 +26,14 @@ type ReadoutProps = {
  * that subscribe to `usePlaybackProgress()`, so they alone re-render four
  * times a second.
  */
-export function PlaybackReadout({ coverColor, waiting, loadingNext }: ReadoutProps) {
+export function PlaybackReadout({ coverColor, waiting, paused }: ReadoutProps) {
   const { positionMs, durationMs, isPlaying } = usePlaybackProgress();
   const elapsed = formatMs(positionMs);
   const total = formatMs(durationMs);
-  const state = isPlaying ? 'Playing' : waiting ? 'Loading' : 'Paused';
+  const state = paused ? 'Paused' : isPlaying ? 'Playing' : waiting ? 'Loading' : 'Paused';
+  // The word changes with a short cross-fade rather than a cut.
+  const reduceMotion = useReducedMotion();
+  const word = useCrossFade(state, state);
 
   return (
     <View
@@ -44,14 +49,11 @@ export function PlaybackReadout({ coverColor, waiting, loadingNext }: ReadoutPro
         <AppText style={styles.time} tone="muted" variant="time">
           {elapsed}
         </AppText>
-        <AppText align="center" numberOfLines={1} style={styles.state} tone="muted" variant="time">
-          {state}
-          {isPlaying && loadingNext ? (
-            <AppText testID="now-loading-next" tone="muted" variant="time">
-              {' · next cue on its way'}
-            </AppText>
-          ) : null}
-        </AppText>
+        <Animated.View style={[styles.state, crossFadeStyle(word.visible, reduceMotion)]}>
+          <AppText align="center" numberOfLines={1} tone="muted" variant="time">
+            {word.value}
+          </AppText>
+        </Animated.View>
         <AppText align="right" style={styles.time} tone="muted" variant="time">
           {total}
         </AppText>

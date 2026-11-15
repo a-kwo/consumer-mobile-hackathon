@@ -65,7 +65,7 @@ type CurrentPlay = {
 type FailureKind = 'network' | 'no_preview' | 'playback';
 
 export type SessionDeps = {
-  audio: TransportAudio;
+  audio: TransportAudio & { pause(fadeMs: number): void; unpause(fadeMs: number): void };
   sensing: {
     getSnapshot(): SensingSnapshot;
     /** Gathers the signals if the setup sequence has not already done so. Never rejects. */
@@ -171,7 +171,37 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
   };
 
   /** Marks the current song as skipped and moves to another one right away. */
+  /**
+   * Pauses in place: a short fade, then the song holds its position. Nothing
+   * about the session changes while paused: no prefetch, no crossfade, no
+   * reaction to the context. Sensing carries on. Acts while playing, and while
+   * starting (the first song then waits for `resume`).
+   */
+  readonly pause = (): void => {
+    const { status } = this.store.get();
+    if (status !== 'playing' && status !== 'starting') return;
+    this.store.patch({ status: 'paused' });
+    this.deps.audio.pause(CONFIG.audio.pauseFadeMs);
+  };
+
+  /** Carries on from a pause, from the same position. The usual rules apply again from here. */
+  readonly resume = (): void => {
+    if (this.store.get().status !== 'paused') return;
+    // Time spent paused is not time the context "held": the sharp-change clock starts over.
+    this.divergedSince = null;
+    this.lastTickAt = Date.now();
+    this.deps.audio.unpause(CONFIG.audio.pauseFadeMs);
+    this.store.patch({ status: this.transport.current ? 'playing' : 'starting' });
+    this.onChange();
+  };
+
+  /** True while the user has paused the session. */
+  get isPaused(): boolean {
+    return this.store.get().status === 'paused';
+  }
+
   readonly skip = (): void => {
+    this.resume();
     if (this.store.get().status !== 'playing') return;
     const pendingRequest = this.transport.pendingRequest;
     if (this.transport.pendingImmediate && pendingRequest?.kind === 'skip') return;
@@ -193,6 +223,7 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
   readonly nudge = (direction: NudgeDirection): void => {
     if (this.store.get().status === 'idle') return;
     if (direction !== 'calmer' && direction !== 'more_energy') return;
+    this.resume();
     const step = direction === 'more_energy' ? TUNING.nudgeEnergyStep : -TUNING.nudgeEnergyStep;
     const shifted = Math.round((this.store.get().energyBias + step) * 100) / 100;
     const energyBias = clamp(shifted, -TUNING.maxEnergyBias, TUNING.maxEnergyBias);
@@ -210,7 +241,8 @@ export class SessionController implements TransportDelegate<PickMeta, PickReques
    * foreground, with the position of the current song.
    */
   tick(progress: DeckProgress, now: number): void {
-    if (this.store.get().status === 'idle') return;
+    const { status } = this.store.get();
+    if (status === 'idle' || status === 'paused') return;
     const suspended = now - this.lastTickAt > CONFIG.engine.suspendedGapMs;
     this.lastTickAt = now;
     if (suspended) this.divergedSince = null;

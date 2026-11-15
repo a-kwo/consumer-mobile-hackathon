@@ -111,6 +111,8 @@ type Deck = {
   volume: number;
   ramp: Ramp | null;
   waiter: Waiter | null;
+  /** Paused by the user (or on its way there): it keeps its place and waits for `unpause`. */
+  held: boolean;
 };
 
 export class Crossfader {
@@ -240,6 +242,48 @@ export class Crossfader {
     }
   }
 
+  /**
+   * Pauses the current song in place after a short fade. A prepared next song
+   * stays prepared; the fading tail of the previous song, if any, is dropped.
+   */
+  pause(fadeMs: number): void {
+    const decks = this.decks;
+    if (!decks) return;
+    const current = decks[this.current];
+    const other = decks[1 - this.current];
+    if (other.started) this.resetDeck(other);
+    if (current.url === null || !current.started || current.finished || current.failed) return;
+    current.held = true;
+    const halt = () => {
+      try {
+        current.player.pause();
+      } catch {
+        // The player is gone.
+      }
+    };
+    if (fadeMs > 0 && current.volume > 0) this.startRamp(current, 0, fadeMs, halt);
+    else {
+      current.ramp = null;
+      this.setVolume(current, 0, true);
+      halt();
+    }
+  }
+
+  /** Plays a paused song on from where it stopped, fading back in. */
+  unpause(fadeMs: number): void {
+    const deck = this.decks?.[this.current];
+    if (!deck || !deck.held) return;
+    deck.held = false;
+    deck.ramp = null;
+    try {
+      deck.player.play();
+    } catch {
+      // The player is gone; the engine notices a song that does not play.
+    }
+    if (fadeMs > 0) this.startRamp(deck, 1, fadeMs, null);
+    else this.setVolume(deck, 1, true);
+  }
+
   /** Position of the current song, read straight from its player. */
   progress(): DeckProgress {
     const deck = this.decks?.[this.current];
@@ -279,6 +323,7 @@ export class Crossfader {
   resume(): void {
     const deck = this.decks?.[this.current];
     if (!deck || deck.url === null || !deck.started || deck.finished || deck.failed) return;
+    if (deck.held) return;
     try {
       if (!deck.player.playing) deck.player.play();
     } catch {
@@ -340,6 +385,7 @@ export class Crossfader {
       volume: 1,
       ramp: null,
       waiter: null,
+      held: false,
     };
     deck.subscription = player.addListener('playbackStatusUpdate', (status) =>
       this.onStatus(deck, status),
@@ -377,6 +423,7 @@ export class Crossfader {
   /** Empties a deck: cancels its ramp and its pending load, pauses it, unloads it. */
   private resetDeck(deck: Deck): void {
     deck.ramp = null;
+    deck.held = false;
     deck.waiter?.settle('cancelled');
     const hadSource = deck.url !== null;
     deck.url = null;

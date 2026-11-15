@@ -85,14 +85,24 @@
  *
  *   useSession()           { status, track, scene, isLoadingNext, error,
  *                            energyBias, nudgePicksLeft,
- *                            start(), stop(), skip(), nudge(direction) }
- *       `status` is 'idle', 'starting' (first pick on its way) or 'playing'.
+ *                            start(), stop(), pause(), resume(), skip(),
+ *                            nudge(direction) }
+ *       `status` is 'idle', 'starting' (first pick on its way), 'playing' or
+ *       'paused'. `pause()` fades out briefly and holds the song where it is;
+ *       while paused nothing about the session changes (no next pick, no
+ *       crossfade, no reaction to the context), the screen may sleep, and
+ *       sensing carries on so `useSensing()` stays current. `resume()` fades
+ *       back in from the same position and the usual rules apply again.
+ *       `skip()` and `nudge()` while paused resume first. A pause survives the
+ *       app going to the background and coming back. `pause()` during
+ *       'starting' holds the first song back until `resume()`. `stop()` ends
+ *       the session altogether (and returns the setup to 'idle').
  *       `track` and `scene` describe the song that is audible; show
  *       `track.reason` and `scene.label`. `error` is a sentence for the user or
  *       null; when the session gives up it returns to 'idle' with the error
  *       still set, and `start()` or `stop()` clears it.
  *       `skip()` works while 'playing'. `nudge('calmer' | 'more_energy')` works
- *       while 'starting' or 'playing'. All four controls are safe to call at
+ *       while 'starting' or 'playing'. All the controls are safe to call at
  *       any time and never throw. `isLoadingNext` is true for the whole of
  *       'starting', and afterwards whenever a pick is being fetched or its
  *       audio is loading. That includes the quiet prefetch about nine seconds
@@ -109,7 +119,8 @@
  *
  *   usePlaybackProgress()  { positionMs, durationMs, isPlaying }
  *       Position of the current song (live or replay), four updates a second.
- *       All zeros and false when nothing is playing. Use it only in the
+ *       All zeros and false when nothing is playing. While paused the position
+ *       and duration are held and `isPlaying` is false. Use it only in the
  *       component that draws progress.
  *
  *   useReplay()            { listId, index, item, status, play(...), stop() }

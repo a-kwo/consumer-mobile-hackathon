@@ -43,6 +43,8 @@ export const CONFIG = {
     gapFadeInMs: 600,
     /** Crossfade used by skip. */
     skipFadeMs: 600,
+    /** Fade-out before a pause, and fade-in after it. */
+    pauseFadeMs: 250,
     /** Fade-out used by stop. */
     stopFadeMs: 400,
     /** Crossfade into the first item of a replay. */

@@ -3,7 +3,7 @@ import Animated, { css, useReducedMotion } from 'react-native-reanimated';
 
 import { Rise, crossFadeStyle, useCrossFade } from '@/components/scene/motion';
 
-import { AppText, IconButton, Notice, PressableScale, PrimaryButton } from '@/components/ui';
+import { AppText, Icon, IconButton, Notice, PressableScale } from '@/components/ui';
 import type { SensingApi, SessionApi } from '@/lib/score';
 import { colors, radius, sizes, space } from '@/theme';
 
@@ -49,7 +49,44 @@ function NudgeButton({ label, onPress, testID }: { label: string; onPress: () =>
 }
 
 /**
- * The Now screen while a session runs. 'starting' and 'playing' share this one
+ * The centre control: pause while the song plays, play while it is held. One
+ * ink circle whose two glyphs cross-fade. Its testID follows its state
+ * (`now-pause` or `now-play`); the wrapper keeps `now-stop`, the id this
+ * control had when it stopped the session, so a tap on either lands here.
+ */
+function PlayPauseButton({
+  paused,
+  onPause,
+  onPlay,
+}: {
+  paused: boolean;
+  onPause: () => void;
+  onPlay: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <View testID="now-stop">
+      <PressableScale
+        accessibilityLabel={paused ? 'Play' : 'Pause'}
+        haptic="press"
+        onPress={paused ? onPlay : onPause}
+        pressedStyle={styles.playPressed}
+        style={styles.play}
+        testID={paused ? 'now-play' : 'now-pause'}>
+        <Animated.View style={[styles.glyph, crossFadeStyle(!paused, reduceMotion)]}>
+          <Icon color={colors.paper} name="pause" size={26} />
+        </Animated.View>
+        <Animated.View style={[styles.glyph, crossFadeStyle(paused, reduceMotion)]}>
+          {/* The play triangle's visual centre sits left of its box. */}
+          <Icon color={colors.paper} name="play" size={26} style={styles.playGlyph} />
+        </Animated.View>
+      </PressableScale>
+    </View>
+  );
+}
+
+/**
+ * The Now screen while a session runs. 'starting', 'playing' and 'paused' share this one
  * layout, with every text slot at a fixed height, so nothing moves (and the
  * figure is not resized) when the first song arrives or one cue gives way to
  * the next.
@@ -59,8 +96,9 @@ export function NowPlayingView({ session, sensing }: Props) {
   const compact = windowHeight < COMPACT_BELOW;
   const reduceMotion = useReducedMotion();
 
-  const { track, status, energyBias, nudgePicksLeft, isLoadingNext, error } = session;
-  const waiting = status !== 'playing' || !track;
+  const { track, status, energyBias, nudgePicksLeft, error } = session;
+  const paused = status === 'paused';
+  const waiting = status === 'starting' || !track;
   const scene = session.scene ?? sensing.scene;
   const nudge = nudgeLine(energyBias, nudgePicksLeft);
   // The song and scene the words are written from: they trail a change of cue by a short fade.
@@ -132,22 +170,16 @@ export function NowPlayingView({ session, sensing }: Props) {
       </View>
 
       <Rise delay={260}>
-        <PlaybackReadout coverColor={track?.coverColor} loadingNext={isLoadingNext} waiting={waiting} />
+        <PlaybackReadout coverColor={track?.coverColor} paused={paused} waiting={waiting} />
       </Rise>
 
-      {/* Calmer, stop, skip, more energy. */}
+      {/* Calmer, play or pause, skip, more energy. */}
       <Rise delay={340} style={styles.controls}>
         <NudgeButton label="Calmer" onPress={() => session.nudge('calmer')} testID="now-calmer" />
-        <PrimaryButton
-          accessibilityLabel="Stop scoring"
-          icon="stop"
-          onPress={session.stop}
-          size="lg"
-          testID="now-stop"
-        />
+        <PlayPauseButton onPause={session.pause} onPlay={session.resume} paused={paused} />
         <IconButton
           accessibilityLabel="Skip this cue"
-          disabled={status !== 'playing'}
+          disabled={status === 'starting'}
           icon="play-skip-forward"
           onPress={session.skip}
           testID="now-skip"
@@ -215,6 +247,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm + 2,
+  },
+  play: {
+    width: sizes.play,
+    height: sizes.play,
+    borderRadius: sizes.play / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.ink,
+  },
+  playPressed: {
+    backgroundColor: colors.inkSoft,
+  },
+  glyph: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playGlyph: {
+    marginLeft: 3,
   },
   nudge: {
     flex: 1,

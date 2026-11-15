@@ -182,7 +182,9 @@ export function SceneView({ sensing, session }: Props) {
           {sessionActive ? (
             <PressableScale
               accessibilityLabel={
-                track ? `Now playing ${track.title} by ${track.artist}. Open Now.` : 'Open Now'
+                track
+                  ? `${session.status === 'paused' ? 'Paused' : 'Now playing'}: ${track.title} by ${track.artist}. Open Now.`
+                  : 'Open Now'
               }
               containerStyle={styles.stretch}
               fill
@@ -195,7 +197,7 @@ export function SceneView({ sensing, session }: Props) {
                 <View style={styles.playingHeading}>
                   <LiveEqualizer size={11} />
                   <AppText numberOfLines={1} tone="muted" variant="meta">
-                    {track ? 'Now playing' : 'Starting the music'}
+                    {!track ? 'Starting the music' : session.status === 'paused' ? 'Paused' : 'Now playing'}
                   </AppText>
                 </View>
                 <AppText numberOfLines={1} variant="button">

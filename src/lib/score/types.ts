@@ -110,7 +110,7 @@ export type SetupSnapshot = {
 
 // ---------------------------------------------------------------- session
 
-export type SessionStatus = 'idle' | 'starting' | 'playing';
+export type SessionStatus = 'idle' | 'starting' | 'playing' | 'paused';
 export type NudgeDirection = 'calmer' | 'more_energy';
 
 export type SessionSnapshot = {
