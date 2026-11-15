@@ -14,7 +14,7 @@ import { TUNING } from './tuning';
  * devices can never push them out of the bound.
  */
 async function feedProfiles(ctx: QueryCtx): Promise<Doc<'profiles'>[]> {
-  const { testDevicePrefix, seedDevicePrefix, maxProfiles } = TUNING.feed;
+  const { testDevicePrefix, seedDevicePrefix, maxProfiles, profileReadLimit } = TUNING.feed;
   const [seeded, before, after] = await Promise.all([
     ctx.db
       .query('profiles')
@@ -23,11 +23,11 @@ async function feedProfiles(ctx: QueryCtx): Promise<Doc<'profiles'>[]> {
     ctx.db
       .query('profiles')
       .withIndex('by_deviceId', (q) => q.lt('deviceId', testDevicePrefix))
-      .take(maxProfiles),
+      .take(profileReadLimit),
     ctx.db
       .query('profiles')
       .withIndex('by_deviceId', (q) => q.gt('deviceId', `${testDevicePrefix}\uffff`))
-      .take(maxProfiles),
+      .take(profileReadLimit),
   ]);
   const seen = new Set<string>();
   return [...seeded, ...before, ...after].filter((profile) => {
@@ -44,6 +44,7 @@ export const list = query({
   handler: async (ctx, { deviceId }) => {
     const { windowMs, maxPerProfile, maxProfiles, testDevicePrefix } = TUNING.feed;
     // The window only needs to be roughly right, and every new play re-runs this query.
+    if (deviceId.length > TUNING.maxDeviceIdChars) return [];
     const since = Date.now() - windowMs;
     const profiles = (await feedProfiles(ctx)).filter(
       (profile) =>
@@ -62,7 +63,9 @@ export const list = query({
         const entries = plays.reverse().map(toOstEntry);
         return {
           profile: {
-            deviceId: profile.deviceId,
+            // A deviceId is its owner's only credential, so it is never published.
+            // The profile's own id stands in: stable, unique, and useless for writing.
+            deviceId: profile._id,
             displayName: profile.displayName,
             avatarEmoji: profile.avatarEmoji,
           },

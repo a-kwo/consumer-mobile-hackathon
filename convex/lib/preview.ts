@@ -11,20 +11,40 @@ export type PreviewSource = 'deezer' | 'itunes';
 export type Preview = { url: string; source: PreviewSource };
 export type PreviewLookup = { deezerId: number; artist: string; title: string; itunesTrackId?: number };
 
-/** GET a JSON document, or null on timeout, network error, bad status or bad JSON. */
-export async function fetchJson(url: string, timeoutMs: number): Promise<unknown> {
+/** A response body, or `blocked` when the server refused, failed or did not answer in time. */
+type Fetched = { blocked: false; body: unknown } | { blocked: true };
+
+async function fetchChecked(url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<Fetched> {
+  if (timeoutMs <= 0) return { blocked: true };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
-    if (!response.ok) return null;
-    return await response.json();
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...headers },
+    });
+    if (!response.ok) return { blocked: true };
+    return { blocked: false, body: await response.json().catch(() => null) };
   } catch {
-    return null;
+    return { blocked: true };
   } finally {
     clearTimeout(timer);
   }
 }
+
+/** GET a JSON document, or null on timeout, network error, bad status or bad JSON. */
+export async function fetchJson(url: string, timeoutMs: number, headers?: Record<string, string>): Promise<unknown> {
+  const fetched = await fetchChecked(url, timeoutMs, headers);
+  return fetched.blocked ? null : fetched.body;
+}
+
+/**
+ * What one source said: a URL, `none` (it answered, and has no preview for this
+ * song) or `blocked` (throttled, refused or timed out). The difference matters:
+ * after `none` the next candidate is worth a try, after `blocked` more requests
+ * only make a throttle worse.
+ */
+type Lookup = string | 'none' | 'blocked';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const httpUrl = (value: unknown): string | null =>
@@ -34,10 +54,12 @@ const httpUrl = (value: unknown): string | null =>
  * Deezer answers errors (unknown track, quota exceeded) with HTTP 200 and an
  * `error` object, and tracks without a preview with an empty string.
  */
-export async function deezerPreview(deezerId: number): Promise<string | null> {
-  const body = await fetchJson(`https://api.deezer.com/track/${deezerId}`, TUNING.preview.timeoutMs);
-  if (!isRecord(body) || body.error) return null;
-  return httpUrl(body.preview);
+async function deezerPreview(deezerId: number, timeoutMs: number): Promise<Lookup> {
+  const fetched = await fetchChecked(`https://api.deezer.com/track/${deezerId}`, timeoutMs);
+  if (fetched.blocked) return 'blocked';
+  const body = fetched.body;
+  if (!isRecord(body) || body.error) return 'none';
+  return httpUrl(body.preview) ?? 'none';
 }
 
 /** Lower case, no accents, no "(feat. …)" or "- Remastered" decorations, no punctuation. */
@@ -77,22 +99,24 @@ const searchWords = (text: string) =>
     .trim();
 
 /**
- * An iTunes preview for the same recording, or null. The artist and the base
+ * An iTunes preview for the same recording. The artist and the base
  * title must match, and so must the kind of version: the song was labeled from
  * one recording, and a live take or a remix would not fit its BPM.
  */
-export async function itunesPreview(artist: string, title: string): Promise<string | null> {
+async function itunesPreview(artist: string, title: string, timeoutMs: number): Promise<Lookup> {
   const wantArtist = normalizeForMatch(artist);
   const wantTitle = normalizeForMatch(title);
-  if (!wantArtist || !wantTitle) return null;
+  if (!wantArtist || !wantTitle) return 'none';
   const wantVersion = versionWords(title);
   // Search for the plain song, or for the exact version when it is a special one.
   const term = encodeURIComponent(wantVersion ? searchWords(`${artist} ${title}`) : `${wantArtist} ${wantTitle}`);
-  const body = await fetchJson(
+  const fetched = await fetchChecked(
     `https://itunes.apple.com/search?term=${term}&entity=song&limit=${TUNING.preview.itunesLimit}`,
-    TUNING.preview.timeoutMs,
+    timeoutMs,
   );
-  if (!isRecord(body) || !Array.isArray(body.results)) return null;
+  if (fetched.blocked) return 'blocked';
+  const body = fetched.body;
+  if (!isRecord(body) || !Array.isArray(body.results)) return 'none';
   for (const result of body.results) {
     if (!isRecord(result)) continue;
     const url = httpUrl(result.previewUrl);
@@ -102,32 +126,52 @@ export async function itunesPreview(artist: string, title: string): Promise<stri
     if (versionWords(result.trackName) !== wantVersion) continue;
     return url;
   }
-  return null;
+  return 'none';
 }
 
-/** The preview of one exact iTunes track, or null. */
-export async function itunesPreviewById(itunesTrackId: number): Promise<string | null> {
-  const body = await fetchJson(`https://itunes.apple.com/lookup?id=${itunesTrackId}`, TUNING.preview.timeoutMs);
-  if (!isRecord(body) || !Array.isArray(body.results)) return null;
+/** The preview of one exact iTunes track. */
+async function itunesPreviewById(itunesTrackId: number, timeoutMs: number): Promise<Lookup> {
+  const fetched = await fetchChecked(`https://itunes.apple.com/lookup?id=${itunesTrackId}`, timeoutMs);
+  if (fetched.blocked) return 'blocked';
+  const body = fetched.body;
+  if (!isRecord(body) || !Array.isArray(body.results)) return 'none';
   const result: unknown = body.results[0];
-  return isRecord(result) ? httpUrl(result.previewUrl) : null;
+  return (isRecord(result) ? httpUrl(result.previewUrl) : null) ?? 'none';
 }
+
+export type PreviewResult = {
+  preview: Preview | null;
+  /**
+   * True when iTunes refused, failed or timed out (or the time budget ran out).
+   * The caller should stop asking for other songs: it would only feed a throttle.
+   */
+  blocked: boolean;
+};
 
 /**
- * A fresh preview URL from the sources in `TUNING.preview.sources`, in order.
- * iTunes is asked by track id when the library has one, else by artist and title.
- * Null when no source has a preview.
+ * A fresh preview URL from the sources in `TUNING.preview.sources`, in order,
+ * with no request running past `deadline` (a Date.now() value).
+ *
+ * iTunes is asked once per song: by track id when the library has one, and by
+ * artist and title only when it does not. A song with an id is never searched for.
  */
-export async function freshPreview(song: PreviewLookup): Promise<Preview | null> {
+export async function freshPreview(song: PreviewLookup, deadline: number): Promise<PreviewResult> {
+  let blocked = false;
   for (const source of TUNING.preview.sources) {
-    let url: string | null;
-    if (source === 'deezer') url = await deezerPreview(song.deezerId);
-    else {
-      url =
-        (song.itunesTrackId === undefined ? null : await itunesPreviewById(song.itunesTrackId)) ??
-        (await itunesPreview(song.artist, song.title));
+    const timeoutMs = Math.min(TUNING.preview.timeoutMs, deadline - Date.now());
+    if (timeoutMs <= 0) return { preview: null, blocked: true };
+    let found: Lookup;
+    if (source === 'deezer') {
+      // Deezer refusing Convex is the normal state of things, not a throttle to back off from.
+      found = await deezerPreview(song.deezerId, timeoutMs);
+    } else {
+      found =
+        song.itunesTrackId === undefined
+          ? await itunesPreview(song.artist, song.title, timeoutMs)
+          : await itunesPreviewById(song.itunesTrackId, timeoutMs);
+      if (found === 'blocked') blocked = true;
     }
-    if (url) return { url, source };
+    if (found !== 'none' && found !== 'blocked') return { preview: { url: found, source }, blocked: false };
   }
-  return null;
+  return { preview: null, blocked };
 }

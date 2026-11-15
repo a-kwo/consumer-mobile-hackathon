@@ -48,6 +48,7 @@ export const pick = action({
   }),
   handler: async (ctx, args): Promise<PickResult> => {
     const startedAt = Date.now();
+    if (args.deviceId.length > TUNING.maxDeviceIdChars) throw new Error('invalid deviceId');
 
     let reading: WeatherReading = { weather: 'any', temperatureC: null };
     if (args.weatherOverride !== undefined) {
@@ -75,8 +76,11 @@ export const pick = action({
 
     // The random pick happens here, in the action: queries must stay deterministic.
     const order = pickOrder(found.ranked, Math.random(), TUNING.preview.maxCandidates);
+    const deadline = matchedAt + TUNING.preview.budgetMs;
     for (const candidate of order) {
-      const preview = await freshPreview(candidate);
+      const { preview, blocked } = await freshPreview(candidate, deadline);
+      // Throttled or out of time: asking about more songs would only make it worse.
+      if (blocked && !preview) break;
       if (!preview) continue;
       const reason = reasonFor(candidate, scene, args.nudge);
       console.log(
@@ -101,7 +105,7 @@ export const pick = action({
         error: null,
       };
     }
-    console.warn(`pick ${scene.key}: no preview for ${order.map((candidate) => candidate.deezerId).join(', ')}`);
+    console.warn(`pick ${scene.key}: no preview after ${Date.now() - matchedAt} ms (tried up to ${order.length} songs)`);
     return { scene, track: null, error: 'no_preview' };
   },
 });

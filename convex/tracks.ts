@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action, internalQuery } from './_generated/server';
 import { freshPreview } from './lib/preview';
+import { TUNING } from './tuning';
 
 /**
  * What the preview lookup needs for a deezerId: from the library, or from the
@@ -46,7 +47,7 @@ export const preview = action({
       { deezerId },
     );
     // Deezer needs only the id, so a song the server has never seen can still resolve there.
-    const found = await freshPreview({ deezerId, artist: '', title: '', ...names });
-    return { previewUrl: found?.url ?? null };
+    const found = await freshPreview({ deezerId, artist: '', title: '', ...names }, Date.now() + TUNING.preview.budgetMs);
+    return { previewUrl: found.preview?.url ?? null };
   },
 });

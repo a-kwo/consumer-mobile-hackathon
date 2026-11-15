@@ -14,6 +14,7 @@ import argparse
 import re
 
 from common import Deezer, DeezerError, connect, log
+from itunes import version_words
 
 _NOISE_WORDS = (
     r"remaster(?:ed)?|re-?master(?:ed)?|radio edit|single edit|album edit|edit|single version|album version|"
@@ -25,8 +26,19 @@ _NOISE_DASH = re.compile(rf"\s[-–—]\s[^-–—]*\b(?:{_NOISE_WORDS}|19\d\d|2
 
 
 def clean_title(title: str, title_short: str | None) -> str:
-    """Display title without remaster / edit / soundtrack noise."""
+    """Display title without remaster / edit / soundtrack noise.
+
+    Deezer's short title drops the version ("Seeb Remix", "Live", "Acoustic"). Those words say
+    it is a different performance, so the full title is used whenever it carries one."""
     base = (title_short or title or "").strip()
+    if title and version_words(title) != version_words(base):
+        base = title.strip()
+    # Deezer writes some classical titles twice: "Work : Composer: Work: Movement".
+    work, separator, rest = base.partition(" : ")
+    if separator and work.strip() and work.strip().lower() in rest.lower():
+        base = rest.strip()
+    elif separator and rest.strip() and not work.isascii() and rest.isascii():
+        base = rest.strip()  # a localised title in front of the Latin one
     cleaned = _NOISE_BRACKET.sub("", base)
     cleaned = _NOISE_DASH.sub("", cleaned).strip(" -–—")
     return cleaned or base or title

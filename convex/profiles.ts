@@ -2,8 +2,10 @@ import { v } from 'convex/values';
 
 import type { Doc } from './_generated/dataModel';
 import { type MutationCtx, type QueryCtx, mutation, query } from './_generated/server';
+import { requireClientDeviceId } from './lib/device';
 import { cleanDisplayName, firstEmoji, generatedProfile } from './lib/names';
 import { type Profile, profileV } from './lib/validators';
+import { TUNING } from './tuning';
 
 const findProfile = (ctx: QueryCtx, deviceId: string) =>
   ctx.db
@@ -31,7 +33,10 @@ async function ensureProfile(ctx: MutationCtx, deviceId: string): Promise<Doc<'p
 export const ensure = mutation({
   args: { deviceId: v.string() },
   returns: profileV,
-  handler: async (ctx, { deviceId }) => toProfile(await ensureProfile(ctx, deviceId)),
+  handler: async (ctx, { deviceId }) => {
+    requireClientDeviceId(deviceId);
+    return toProfile(await ensureProfile(ctx, deviceId));
+  },
 });
 
 /**
@@ -47,6 +52,7 @@ export const update = mutation({
   },
   returns: profileV,
   handler: async (ctx, { deviceId, displayName, avatarEmoji }) => {
+    requireClientDeviceId(deviceId);
     const row = await ensureProfile(ctx, deviceId);
     const next = {
       displayName: (displayName !== undefined ? cleanDisplayName(displayName) : null) ?? row.displayName,
@@ -64,6 +70,7 @@ export const get = query({
   args: { deviceId: v.string() },
   returns: v.union(profileV, v.null()),
   handler: async (ctx, { deviceId }) => {
+    if (deviceId.length > TUNING.maxDeviceIdChars) return null;
     const row = await findProfile(ctx, deviceId);
     return row ? toProfile(row) : null;
   },

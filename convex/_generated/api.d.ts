@@ -11,6 +11,7 @@
 import type * as crons from "../crons.js";
 import type * as feed from "../feed.js";
 import type * as health from "../health.js";
+import type * as lib_device from "../lib/device.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_match from "../lib/match.js";
 import type * as lib_names from "../lib/names.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   feed: typeof feed;
   health: typeof health;
+  "lib/device": typeof lib_device;
   "lib/hash": typeof lib_hash;
   "lib/match": typeof lib_match;
   "lib/names": typeof lib_names;

@@ -8,6 +8,7 @@ import { TUNING } from './tuning';
 
 export type WeatherReading = { weather: Weather; temperatureC: number | null };
 
+const USER_AGENT = { 'User-Agent': TUNING.weatherUserAgent };
 const UNKNOWN: WeatherReading = { weather: 'any', temperatureC: null };
 
 const isWeather = (value: string): value is Weather => (WEATHERS as readonly string[]).includes(value);
@@ -79,7 +80,7 @@ async function fetchOpenMeteo(lat: number, lon: number): Promise<WeatherReading 
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     '&current=temperature_2m,weather_code,is_day,precipitation';
-  const body = await fetchJson(url, TUNING.weatherTimeoutMs);
+  const body = await fetchJson(url, TUNING.weatherTimeoutMs, USER_AGENT);
   const current = (body as { current?: Record<string, unknown> } | null)?.current;
   if (!current || typeof current.weather_code !== 'number') return null;
   return { weather: weatherForWmoCode(current.weather_code), temperatureC: temperatureOf(current.temperature_2m) };
@@ -104,7 +105,7 @@ export function weatherForMetSymbol(symbol: string): Weather {
  */
 async function fetchMetNorway(lat: number, lon: number): Promise<WeatherReading | null> {
   const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`;
-  const body = (await fetchJson(url, TUNING.weatherTimeoutMs)) as {
+  const body = (await fetchJson(url, TUNING.weatherTimeoutMs, USER_AGENT)) as {
     properties?: { timeseries?: { data?: Record<string, { summary?: { symbol_code?: unknown }; details?: Record<string, unknown> }> }[] };
   } | null;
   const now = body?.properties?.timeseries?.[0]?.data;

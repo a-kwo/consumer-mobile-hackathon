@@ -152,7 +152,17 @@ const isSeedDevice = (deviceId: string) => PERSONAS.some((persona) => persona.de
  */
 export const begin = internalMutation({
   args: {},
-  returns: v.union(v.null(), v.array(v.object({ deviceId: v.string(), latestAt: v.union(v.number(), v.null()) }))),
+  returns: v.union(
+    v.null(),
+    v.array(
+      v.object({
+        deviceId: v.string(),
+        latestAt: v.union(v.number(), v.null()),
+        /** Songs in the friend's latest plays, so the others can avoid them. */
+        recentDeezerIds: v.array(v.number()),
+      }),
+    ),
+  ),
   handler: async (ctx) => {
     if (!(await ctx.db.query('songs').first())) return null;
     return await Promise.all(
@@ -166,10 +176,14 @@ export const begin = internalMutation({
             .query('plays')
             .withIndex('by_device_startedAt', (q) => q.eq('deviceId', deviceId))
             .order('desc')
-            .first(),
+            .take(TUNING.feed.maxPerProfile),
         ]);
         if (!profile) await ctx.db.insert('profiles', { deviceId, displayName, avatarEmoji, seeded: true });
-        return { deviceId, latestAt: latest?.startedAt ?? null };
+        return {
+          deviceId,
+          latestAt: latest[0]?.startedAt ?? null,
+          recentDeezerIds: latest.map((play) => play.deezerId),
+        };
       }),
     );
   },
@@ -265,48 +279,46 @@ export const friends = internalAction({
   returns: v.object({ seeded: v.boolean(), added: v.number(), pruned: v.number() }),
   handler: async (ctx): Promise<{ seeded: boolean; added: number; pruned: number }> => {
     const now = Date.now();
-    const state: { deviceId: string; latestAt: number | null }[] | null = await ctx.runMutation(
+    const state: { deviceId: string; latestAt: number | null; recentDeezerIds: number[] }[] | null = await ctx.runMutation(
       internal.seed.begin,
       {},
     );
     if (!state) return { seeded: false, added: 0, pruned: 0 };
 
-    const added: number[] = await Promise.all(
-      PERSONAS.map(async (persona) => {
-        const latestAt = state.find((friend) => friend.deviceId === persona.deviceId)?.latestAt ?? null;
-        const plays: Omit<NewPlay, 'deviceId'>[] = [];
-        // Songs chosen in this run are not in the play log yet, so exclude them by hand.
-        const chosen: number[] = [];
-        for (const { startedAt, context } of planSlots(persona, latestAt, now)) {
-          const scene = buildScene({
-            cadenceSpm: context.cadenceSpm,
-            localHour: context.localHour,
-            weather: context.weather,
-            setting: context.setting,
-          });
-          const found = await findCandidates(ctx, {
-            deviceId: persona.deviceId,
-            scene,
-            excludeDeezerIds: chosen,
-          });
-          const [song] = pickOrder(found.ranked, Math.random(), 1);
-          if (!song) continue;
-          chosen.push(song.deezerId);
-          plays.push({
-            deezerId: song.deezerId,
-            startedAt,
-            context,
-            sceneKey: scene.key,
-            sceneLabel: scene.label,
-            reason: reasonFor(song, scene),
-          });
-        }
-        if (plays.length === 0) return 0;
-        return await ctx.runMutation(internal.seed.append, { deviceId: persona.deviceId, plays });
-      }),
-    );
+    // One friend at a time, sharing one list of taken songs: three friends with the
+    // same song on the same day would give the game away.
+    const chosen: number[] = state.flatMap((friend) => friend.recentDeezerIds);
+    let added = 0;
+    for (const persona of PERSONAS) {
+      const latestAt = state.find((friend) => friend.deviceId === persona.deviceId)?.latestAt ?? null;
+      const plays: Omit<NewPlay, 'deviceId'>[] = [];
+      for (const { startedAt, context } of planSlots(persona, latestAt, now)) {
+        const scene = buildScene({
+          cadenceSpm: context.cadenceSpm,
+          localHour: context.localHour,
+          weather: context.weather,
+          setting: context.setting,
+        });
+        const found = await findCandidates(ctx, { deviceId: persona.deviceId, scene, excludeDeezerIds: chosen });
+        const [song] = pickOrder(found.ranked, Math.random(), 1);
+        if (!song) continue;
+        chosen.push(song.deezerId);
+        plays.push({
+          deezerId: song.deezerId,
+          startedAt,
+          context,
+          sceneKey: scene.key,
+          sceneLabel: scene.label,
+          reason: reasonFor(song, scene),
+        });
+      }
+      if (plays.length > 0) {
+        const count: number = await ctx.runMutation(internal.seed.append, { deviceId: persona.deviceId, plays });
+        added += count;
+      }
+    }
 
     const pruned: number = await ctx.runMutation(internal.seed.prune, { before: now - TUNING.seedPruneMs });
-    return { seeded: true, added: added.reduce((sum, count) => sum + count, 0), pruned };
+    return { seeded: true, added, pruned };
   },
 });

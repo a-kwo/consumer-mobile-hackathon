@@ -395,6 +395,15 @@ def version_flags(title: str) -> str:
     return ""
 
 
+def felt_bpm(bpm: float, energy: float) -> float:
+    """The tempo a listener feels. Calm music is felt at the slower pulse, but both Deezer and
+    the analyser often report the double: "Imagine" at 151, "Don't Know Why" at 177. So a calm
+    song with a fast tempo is halved. Slow walks then find calm songs at 50 to 90 BPM."""
+    if (energy < 0.3 and bpm > 100) or (energy < 0.4 and bpm > 140):
+        return round(bpm / 2.0, 1)
+    return bpm
+
+
 def die(message: str) -> None:
     print(message, file=sys.stderr)
     raise SystemExit(1)

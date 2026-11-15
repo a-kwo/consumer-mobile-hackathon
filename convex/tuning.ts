@@ -95,6 +95,10 @@ export const TUNING = {
   weatherCellDegrees: 0.05,
   /** Give up on the weather API after this long and use a stale cache row, or `any`. */
   weatherTimeoutMs: 2500,
+  /** Sent to the weather APIs. MET Norway refuses requests without a User-Agent. */
+  weatherUserAgent: 'Score/1.0 hackathon prototype',
+  /** Longer deviceIds are refused. */
+  maxDeviceIdChars: 64,
 
   // ---- Matching, server side (next:pick and the seeded friends) ----
 
@@ -132,6 +136,8 @@ export const TUNING = {
     sources: ['itunes', 'deezer'],
     /** Per-request timeout. */
     timeoutMs: 2500,
+    /** All the preview requests of one pick together may take this long, then it gives up. */
+    budgetMs: 6000,
     /** Candidates tried before giving up with `no_preview`. */
     maxCandidates: 3,
     /** Results requested from the iTunes Search API when Deezer has no preview. */
@@ -149,6 +155,8 @@ export const TUNING = {
     windowMs: 36 * 60 * 60 * 1000,
     maxPerProfile: 12,
     maxProfiles: 40,
+    /** How many profiles are read on each side of the test-device prefix before the newest are kept. */
+    profileReadLimit: 300,
     /** Non-seeded devices with this id prefix are cloud test devices and never appear. */
     testDevicePrefix: 'sim-',
     /** The seeded friends' deviceIds start with this. */

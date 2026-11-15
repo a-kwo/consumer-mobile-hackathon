@@ -13,7 +13,7 @@ from collections import Counter
 import numpy as np
 
 from analyze import report as tempo_report
-from common import connect, load_vocab
+from common import connect, felt_bpm, load_vocab
 from embed import from_blob
 from push import library_records
 
@@ -75,8 +75,13 @@ def main() -> None:
     print("  bpm source: " + ", ".join(f"{name} {n}" for name, n in sources.items()))
     print(f"  artists: {len({record['artist'] for record in records})}")
 
-    bpm = Counter(int(record["bpm"] // 10) * 10 for record in records)
+    tempos = [felt_bpm(record["bpm"], label["energy"]) for record, label in zip(records, labels)]
+    halved = sum(1 for tempo, record in zip(tempos, records) if tempo != record["bpm"])
+    print(f"  calm songs stored at half tempo (the felt pulse): {halved}")
+    bpm = Counter(int(tempo // 10) * 10 for tempo in tempos)
     histogram("BPM (10-BPM buckets)", [(f"{low}-{low + 9}", bpm[low]) for low in range(min(bpm), max(bpm) + 10, 10)])
+    calm = Counter(int(tempo // 10) * 10 for tempo, label in zip(tempos, labels) if label["energy"] < 0.4)
+    histogram("BPM of calm songs (energy under 0.4)", [(f"{low}-{low + 9}", calm[low]) for low in sorted(calm)])
     for field in ("energy", "valence"):
         values = Counter(min(9, int(label[field] * 10)) for label in labels)
         histogram(f"{field} (0.1 buckets)", [(f"{i / 10:.1f}-{(i + 1) / 10:.1f}", values[i]) for i in range(10)])
@@ -113,7 +118,7 @@ def main() -> None:
         for index in np.argsort(-scores)[: args.top]:
             record, label = records[index], labels[index]
             print(f"  {scores[index]:.3f}  {record['artist']} - {record['title']}  "
-                  f"[{round(record['bpm'])} bpm, energy {label['energy']:.2f}, valence {label['valence']:.2f}; "
+                  f"[{round(tempos[index])} bpm, energy {label['energy']:.2f}, valence {label['valence']:.2f}; "
                   f"{', '.join(label['moods'])} | {', '.join(label['scenes'])}]")
 
 

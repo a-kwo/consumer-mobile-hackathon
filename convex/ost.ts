@@ -10,7 +10,7 @@ export const get = query({
   args: { deviceId: v.string(), dayStart: v.number(), dayEnd: v.number() },
   returns: ostV,
   handler: async (ctx, { deviceId, dayStart, dayEnd }) => {
-    if (!(dayStart < dayEnd)) return { entries: [], topMoods: [], summary: '' };
+    if (!(dayStart < dayEnd) || deviceId.length > TUNING.maxDeviceIdChars) return { entries: [], topMoods: [], summary: '' };
     // Newest first so the bound keeps the latest plays, then flipped to play order.
     const plays = await ctx.db
       .query('plays')

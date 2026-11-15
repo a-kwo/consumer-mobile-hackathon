@@ -19,7 +19,7 @@ import itertools
 import json
 import math
 
-from common import OUT_DIR, TIME_IDS, connect, die, load_vocab, log
+from common import OUT_DIR, TIME_IDS, connect, die, felt_bpm, load_vocab, log
 from embed import DIMENSIONS, from_blob, scene_key
 
 SONG_REQUIRED = {
@@ -173,7 +173,7 @@ def export_songs(conn, vocab: dict, limit: int | None, min_confidence: float) ->
             "title": record["title"],
             "artist": record["artist"],
             "coverUrl": record["cover_url"],
-            "bpm": float(record["bpm"]),
+            "bpm": felt_bpm(float(record["bpm"]), float(labels["energy"])),
             "energy": float(labels["energy"]),
             "valence": float(labels["valence"]),
             "tension": float(labels["tension"]),

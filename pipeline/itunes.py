@@ -32,6 +32,9 @@ SEARCH_URL = "https://itunes.apple.com/search"
 LOOKUP_URL = "https://itunes.apple.com/lookup"
 CALLS_PER_MINUTE = 19.0
 RESULT_LIMIT = 10
+# A search result much longer or shorter than the Deezer track is another cut or mix
+# ("Zwette Edit", "No Rap Version"), even when the title looks the same.
+MAX_LENGTH_GAP_SECONDS = 8.0
 
 VERSION_WORDS = re.compile(
     r"\b(remix|rmx|live|acoustic|demo|instrumental|karaoke|cover|rework|reprise|orchestral|unplugged|"
@@ -132,6 +135,8 @@ def best_match(row, results: list[dict]) -> tuple[dict | None, bool]:
             continue
         seconds = (result.get("trackTimeMillis") or 0) / 1000.0
         gap = abs(seconds - (row["duration"] or seconds)) if seconds else 30.0
+        if seconds and row["duration"] and gap > MAX_LENGTH_GAP_SECONDS:
+            continue
         cleaned = result.get("trackExplicitness") == "cleaned"
         compilation = bool(COMPILATION.search(result.get("collectionName") or "")) or (
             (result.get("collectionArtistName") or "").lower() == "various artists"
@@ -181,13 +186,23 @@ def album_upc(conn, row) -> str | None:
     return str(upc) if upc else None
 
 
+# Labeled songs the library is short of go first: calm material, thin moods, morning songs.
+SCARCE = (
+    "(labels IS NOT NULL AND (json_extract(labels, '$.energy') < 0.4"
+    " OR labels LIKE '%\"calm\"%' OR labels LIKE '%\"ethereal\"%' OR labels LIKE '%\"cozy\"%'"
+    " OR labels LIKE '%\"tender\"%' OR labels LIKE '%\"dreamy\"%' OR labels LIKE '%\"morning\"%'))"
+)
+
+
 def next_row(conn):
-    """The unchecked song most likely to survive: labeled ones first, brand-new releases last."""
+    """The unchecked song most likely to survive and most needed: labeled songs first, scarce
+    material before the rest, brand-new releases last, then by popularity."""
     return conn.execute(
-        """SELECT * FROM tracks
-           WHERE selected = 1 AND enriched = 1 AND drop_reason IS NULL AND itunes_checked = 0
-           ORDER BY labeled DESC, (release_date IS NULL OR release_date < '2025-07-01') DESC,
-                    analyzed DESC, rank DESC LIMIT 1"""
+        f"""SELECT * FROM tracks
+            WHERE selected = 1 AND enriched = 1 AND drop_reason IS NULL AND itunes_checked = 0
+            ORDER BY labeled DESC, {SCARCE} DESC,
+                     (release_date IS NULL OR release_date < '2025-07-01') DESC, analyzed DESC, rank DESC
+            LIMIT 1"""
     ).fetchone()
 
 

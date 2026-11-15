@@ -23,12 +23,12 @@ Run from `pipeline/` with `.venv/bin/python`. Every script takes `--limit N` and
 | --- | --- | --- |
 | 1 | `seed.py` | Finds Deezer playlists for about 120 mood, scene, genre, decade and tempo phrases, plus charts. Keeps the phrases as crowd tags. Selects about 2,300 popular, deduplicated candidates, at most 4 per artist. |
 | 2 | `enrich.py` | Looks up each candidate on Deezer: ISRC, cover, BPM, release date, genre. Drops tracks with no preview. |
-| 2b | `itunes.py` | Finds the same recording in the iTunes Store, where the app's previews come from. Drops songs with no match. Slow: Apple allows about 20 calls a minute. |
+| 2b | `itunes.py` | Finds the same recording in the iTunes Store, where the app's previews come from, and stores its track id. Drops songs with no match. Slow: Apple allows about 20 calls a minute. |
 | 3 | `analyze.py` | Downloads each Deezer preview, measures tempo and audio features, deletes the audio. `--report` prints agreement with Deezer's BPM. |
 | 4 | `label.py` | Labels songs with an LLM in batches of 20. `--dry-run` prints a prompt; `--self-test` checks parsing. Drops songs with confidence under 0.6. |
 | 5 | `embed.py` | Embeds the 840 scene keys and every labeled song with `BAAI/bge-small-en-v1.5`, locally. |
 | 6 | `push.py` | Writes `out/scenes.jsonl` and `out/songs.jsonl`, validates every row against `convex/schema.ts`, prints the import commands. It does not run them. |
-| | `report.py` | Library health: counts, histograms, coverage per mood and scene tag, top songs for a scene key. |
+| | `report.py` | Library health: counts, histograms, coverage per mood and scene tag, top songs for a scene key. `--include-unchecked` also counts songs still waiting for the iTunes check. |
 
 Typical full run:
 
@@ -67,13 +67,21 @@ the new songs.
   tempo measured from the preview. Both are folded by octaves into 60 to 185 BPM; the app counts
   half and double time as a match. The measurement is a comb over the autocorrelation of the
   onset envelope (the beat period plus its half, double and quadruple), tuned on tracks that
-  have a Deezer BPM.
+  have a Deezer BPM. At export, calm songs are stored at the pulse a listener feels
+  (`felt_bpm` in `common.py`): energy under 0.3 with a tempo over 100, or energy under 0.4 with
+  a tempo over 140, is halved.
+- **iTunes match.** `itunes.py` follows the rules of `convex/lib/preview.ts`: the artist must
+  match, the base title must match, and version words (remix, live, acoustic...) must be the
+  same. A search result more than 8 seconds longer or shorter than the Deezer track is rejected
+  as another cut. A song the search misses is looked up exactly, through its album's UPC.
+  Only songs with a match are exported, each with its `itunesTrackId`.
 - **Embeddings.** A song is embedded as `moods, scene tags, times of day`; a scene as its mood
   and tag hints from `shared/vocab.json` (weight 0.75) blended with its descriptive phrases
   (weight 0.25). Every vector has the mean embedding of the vocabulary words subtracted and is
   normalised again. Without that step all cosines sit between 0.55 and 0.97 and the similarity
   term barely moves the score; with it they spread over roughly 0 to 0.9.
 - **Previews.** Deezer preview URLs are signed and expire, so they are never stored. iTunes
-  preview URLs are kept in `work.db` only, never exported.
+  preview URLs are kept in `work.db` only, never exported. Downloaded audio is deleted as soon
+  as it has been analysed.
 - **Last.fm.** If `LASTFM_API_KEY` is set, `seed.py` also takes top tracks per tag from Last.fm.
   This path has not been run.

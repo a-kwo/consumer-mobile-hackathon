@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import type { Id } from './_generated/dataModel';
 import { type MutationCtx, internalMutation, mutation } from './_generated/server';
+import { isClientDeviceId } from './lib/device';
 import { clamp } from './lib/hash';
 import { normalizeHour } from './lib/scene';
 import { cleanPlaceName, makeTitle } from './lib/titles';
@@ -98,7 +99,8 @@ export const log = mutation({
     reason: v.string(),
   },
   returns: v.union(v.id('plays'), v.null()),
-  handler: async (ctx, args) => recordPlay(ctx, args),
+  // Seeded friends are written by the seeder only, through recordPlay directly.
+  handler: async (ctx, args) => (isClientDeviceId(args.deviceId) ? recordPlay(ctx, args) : null),
 });
 
 /** Marks a play as skipped, which hides it from the soundtrack. CONTRACT: frozen. */
@@ -106,6 +108,7 @@ export const markSkipped = mutation({
   args: { deviceId: v.string(), playId: v.id('plays') },
   returns: v.null(),
   handler: async (ctx, { deviceId, playId }) => {
+    if (!isClientDeviceId(deviceId)) return null;
     const play = await ctx.db.get('plays', playId);
     // Someone else's play, or one that is already gone: nothing to do.
     if (!play || play.deviceId !== deviceId || play.skipped) return null;
