@@ -5,7 +5,6 @@
  */
 import { useSyncExternalStore } from 'react';
 
-import type { ActiveOccasion } from '../../../convex/lib/occasion';
 import type { PlayContext, Profile, Scene, Track } from '../../../convex/lib/validators';
 import { useScoreEngine } from './provider';
 import type {
@@ -23,6 +22,7 @@ import type {
   ReplayStatus,
   SavedPlace,
   ScoreLocation,
+  ScoreOccasion,
   SessionStatus,
   SetupSnapshot,
   SignalId,
@@ -62,8 +62,11 @@ export type SensingApi = {
   clearLocation(): void;
   /** The presenter's control: the demo scenarios, and which one (if any) is chosen outright. */
   demo: DemoControl;
-  /** The occasion steering picks: the calendar's next event, or a scenario's. */
-  occasion: ActiveOccasion | null;
+  /**
+   * The occasion steering picks: the calendar's next event, or a scenario's.
+   * `occasion.title` is the event's own name when there is one; it never leaves the device.
+   */
+  occasion: ScoreOccasion | null;
   /** Whether the device calendar is being read. */
   calendarEnabled: boolean;
   calendarAccess: CalendarAccess;

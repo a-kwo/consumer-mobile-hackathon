@@ -20,6 +20,12 @@ import type {
 
 export type PermissionState = 'unknown' | 'granted' | 'denied';
 
+/**
+ * The occasion in effect. `title` is the event's own name, for display. It
+ * stays on the device: only `id` and `minutesUntil` are ever sent.
+ */
+export type ScoreOccasion = ActiveOccasion & { title?: string };
+
 /** The five things a pick is made from. */
 export type SignalId = 'place' | 'weather' | 'time' | 'calendar' | 'pace';
 /** `device`: really sensed. `demo`: from a demo scenario, because the device could not say. */
@@ -68,7 +74,7 @@ export type SensingSnapshot = {
   locationStatus: LocationStatus;
   demo: DemoControl;
   /** The occasion steering picks right now: the calendar's next event, or a scenario's. */
-  occasion: ActiveOccasion | null;
+  occasion: ScoreOccasion | null;
   /** Whether the device calendar is being read. */
   calendarEnabled: boolean;
   calendarAccess: CalendarAccess;

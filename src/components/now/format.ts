@@ -3,7 +3,7 @@
  * sentence, the meta line, clock and playback times.
  */
 import type { IconName } from '@/components/ui';
-import type { PlayContext, Scene, Setting, Weather } from '@/lib/score';
+import { formatTemperature, type PlayContext, type Scene, type ScoreLocation, type Setting, type Weather } from '@/lib/score';
 
 import { normalizeHour } from '../../../convex/lib/scene';
 
@@ -118,9 +118,26 @@ export function metaLine(context: PlayContext, scene?: Scene | null, brief = fal
   if (weather !== 'any' && !brief) {
     parts.push(
       typeof temperatureC === 'number'
-        ? `${WEATHER_META[weather].label}, ${Math.round(temperatureC)}°`
+        ? `${WEATHER_META[weather].label}, ${formatTemperature(temperatureC).value}°`
         : WEATHER_META[weather].label
     );
   }
   return parts.join(' · ');
+}
+
+/**
+ * The name of a venue, when the place is one: the head of the label ("Y
+ * Combinator" from "Y Combinator, San Francisco") when it is neither the
+ * street, the area nor the city. Null for a street address or a district.
+ */
+export function venueName(place: Pick<ScoreLocation, 'label' | 'street' | 'area' | 'city'>): string | null {
+  const head = place.label.split(',')[0]?.trim();
+  if (!head) return null;
+  const same = (other: string | null) => !!other && other.trim().toLowerCase() === head.toLowerCase();
+  return same(place.street) || same(place.area) || same(place.city) ? null : head;
+}
+
+/** The place in a word or two for the meta line: the venue, else the street, the area, the city. */
+export function placeShort(place: Pick<ScoreLocation, 'label' | 'street' | 'area' | 'city'>): string {
+  return venueName(place) ?? place.street ?? place.area ?? place.city ?? place.label;
 }

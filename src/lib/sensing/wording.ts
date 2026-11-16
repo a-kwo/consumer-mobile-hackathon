@@ -3,6 +3,7 @@ import { occasionLabel } from '../../../convex/lib/occasion';
 import { timeOfDayFor } from '../../../convex/lib/scene';
 import type { Occasion, Weather } from '../../../convex/lib/validators';
 import { TUNING } from '../../../convex/tuning';
+import { formatTemperature } from '../score/temperature';
 
 const WEATHER_WORD: Record<Weather, string> = {
   any: 'Hard to say',
@@ -14,10 +15,10 @@ const WEATHER_WORD: Record<Weather, string> = {
   storm: 'A storm',
 };
 
-/** "Rain, 12°", "Clear skies". */
+/** "Rain, 60°" (in the unit the device's region reads), "Clear skies". */
 export function describeWeather(weather: Weather, temperatureC: number | null): string {
   const word = WEATHER_WORD[weather];
-  return temperatureC === null ? word : `${word}, ${Math.round(temperatureC)}°`;
+  return temperatureC === null ? word : `${word}, ${formatTemperature(temperatureC).value}°`;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -36,10 +37,18 @@ export function describeTime(day: number, localHour: number): string {
   return `${DAYS[((day % 7) + 7) % 7]} ${timeOfDayFor(hour)}, ${clock}`;
 }
 
-/** "Date in 40 min", "Workout underway", or the line for an empty calendar. */
-export function describeOccasion(occasion: { id: Occasion; minutesUntil: number } | null): string {
+/**
+ * "Date in 40 min", "Workout underway"; with the event's own title,
+ * "Consumer Mobile YC Hackathon, under way"; or the line for an empty calendar.
+ */
+export function describeOccasion(
+  occasion: { id: Occasion; minutesUntil: number; title?: string } | null,
+): string {
   if (!occasion) return 'Nothing coming up';
   const minutes = Math.round(occasion.minutesUntil);
+  if (occasion.title) {
+    return minutes <= 0 ? `${occasion.title}, under way` : `${occasion.title} in ${minutes} min`;
+  }
   const label = occasionLabel(occasion.id);
   return minutes <= 0 ? `${label} underway` : `${label} in ${minutes} min`;
 }

@@ -31,7 +31,7 @@ import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import { Platform } from 'react-native';
 
-import { type ActiveOccasion, type OccasionEvent, isOccasion, nextOccasion } from '../../../convex/lib/occasion';
+import { isOccasion, nextOccasion } from '../../../convex/lib/occasion';
 import { buildScene } from '../../../convex/lib/scene';
 import {
   type Occasion,
@@ -49,13 +49,19 @@ import type {
   Backend,
   CalendarAccess,
   LiveReadings,
+  ScoreOccasion,
   SensingSnapshot,
   SignalFinding,
   SignalId,
   SignalSource,
 } from '../score/types';
 import { CadenceWindow } from './cadence';
-import { calendarAccess, readOccasionEvents, storeCalendarEnabled } from './calendar';
+import {
+  calendarAccess,
+  readOccasionEvents,
+  storeCalendarEnabled,
+  type TitledOccasionEvent,
+} from './calendar';
 import { localHourOf, placeForSetting } from './context';
 import { type Coordinates, distanceMeters } from './geo';
 import {
@@ -129,8 +135,14 @@ export class SensingController {
   private active = false;
 
   // Demo scenarios.
-  /** Chosen by the presenter: overrides the device. */
+  /**
+   * The scenario that overrides the device: the presenter's choice, or, until
+   * the presenter chooses, the default one on a demo environment (a simulator,
+   * an emulator, a cloud device, the web build). Null on a real phone.
+   */
   private chosenScenario: Scenario | null = null;
+  /** The presenter has chosen (a scenario, or none): the default no longer applies this session. */
+  private scenarioChosenByUser = false;
   /** Fills this run's gaps; taken from the rotation the first time a gap appears. */
   private runScenario: Scenario | null = null;
   private rotation = 0;
@@ -165,7 +177,7 @@ export class SensingController {
   /** The user switched the calendar off: setup does not ask again this launch. */
   private calendarDeclined = false;
   private calendarAccess: CalendarAccess = 'unknown';
-  private calendarEvents: readonly OccasionEvent[] = [];
+  private calendarEvents: readonly TitledOccasionEvent[] = [];
   private calendarReadAt = 0;
   private calendarReading = false;
   private occasionNotice: string | null = null;
@@ -199,6 +211,9 @@ export class SensingController {
   private placeNotice: string | null = null;
 
   constructor(private readonly deps: SensingDeps) {
+    // Anything that is not a real phone is a demo environment, and shows the default scenario.
+    if (isWeb() || !Device.isDevice) this.chosenScenario = SCENARIOS[0];
+    this.scenarioSince = Date.now();
     this.store = new Store(this.buildSnapshot(null));
   }
 
@@ -220,6 +235,7 @@ export class SensingController {
     const scenario = scenarioById(id);
     if (id !== null && !scenario) return;
     this.chosenScenario = scenario;
+    this.scenarioChosenByUser = true;
     this.pinnedIsNewer = false;
     this.scenarioSince = Date.now();
     this.publish();
@@ -557,8 +573,8 @@ export class SensingController {
   }
 
   private async senseWeather(budgetMs: number, run: number): Promise<SignalFinding> {
-    const pinned = this.chosenScenario?.pin?.weather;
-    if (pinned) return { detail: describeWeather(pinned, null), source: 'demo' };
+    const pin = this.chosenScenario?.pin;
+    if (pin?.weather) return { detail: describeWeather(pin.weather, pin.temperatureC ?? null), source: 'demo' };
 
     const location = this.effectiveLocation();
     const backend = this.deps.getBackend();
@@ -607,7 +623,7 @@ export class SensingController {
         } catch {
           this.calendarEvents = [];
         }
-        return { detail: describeOccasion(nextOccasion(this.calendarEvents, now())), source: 'device' };
+        return { detail: describeOccasion(this.calendarOccasion(now())), source: 'device' };
       }
     }
     if (!this.chosenScenario) {
@@ -658,14 +674,31 @@ export class SensingController {
   }
 
   /** The demo scenario's event, counting down from when the scenario was adopted. */
-  private demoOccasion(now: number): ActiveOccasion | null {
+  private demoOccasion(now: number): ScoreOccasion | null {
     const scenario = this.chosenScenario ?? (this.gaps.calendar ? this.runScenario : null);
     if (!scenario?.event) return null;
+    const { occasion, minutesUntil, title } = scenario.event;
     const elapsed = Math.floor((now - this.scenarioSince) / 60000);
-    return { id: scenario.event.occasion, minutesUntil: Math.max(0, scenario.event.minutesUntil - elapsed) };
+    const active: ScoreOccasion = { id: occasion, minutesUntil: Math.max(0, minutesUntil - elapsed) };
+    if (title) active.title = title;
+    return active;
   }
 
-  private activeOccasion(now: number): ActiveOccasion | null {
+  /** The calendar's next recognised event, with its own title beside it for display. */
+  private calendarOccasion(now: number): ScoreOccasion | null {
+    const next = nextOccasion(this.calendarEvents, now);
+    if (!next) return null;
+    // The same choice `nextOccasion` made, found again to recover the title it does not carry.
+    const event = this.calendarEvents.find(
+      (candidate) =>
+        candidate.id === next.id &&
+        candidate.endMs > now &&
+        Math.ceil((candidate.startMs - now) / 60000) === next.minutesUntil,
+    );
+    return event?.title ? { ...next, title: event.title } : next;
+  }
+
+  private activeOccasion(now: number): ScoreOccasion | null {
     if (this.occasionRefused) return null;
     if (this.override) {
       const { occasion, minutesUntil } = this.override;
@@ -673,7 +706,7 @@ export class SensingController {
     }
     if (this.chosenScenario || this.gaps.calendar) return this.demoOccasion(now);
     if (!this.calendarEnabled || this.calendarAccess !== 'granted') return null;
-    return nextOccasion(this.calendarEvents, now);
+    return this.calendarOccasion(now);
   }
 
   private buildSnapshot(previous: SensingSnapshot | null): SensingSnapshot {
@@ -742,6 +775,7 @@ export class SensingController {
       const known = location ? this.weatherAt(location) : null;
       if (chosen?.pin?.weather) {
         weather = chosen.pin.weather;
+        temperatureC = chosen.pin.temperatureC ?? null;
         sources.weather = 'demo';
       } else if (known) {
         weather = known.weather;
@@ -861,7 +895,8 @@ export class SensingController {
     if (this.places.length === 0) this.places = places;
     if (chosen && this.pinned === null && this.locationEpoch === 0) {
       this.pinned = chosen;
-      this.pinnedIsNewer = this.chosenScenario === null;
+      // A place the user picked earlier outranks the default scenario, not one they chose since.
+      this.pinnedIsNewer = !this.scenarioChosenByUser;
     }
     this.publish();
     this.maybeFetchWeather();
@@ -991,6 +1026,8 @@ export class SensingController {
    */
   private maybeFetchWeather(): void {
     if (!this.mounted || this.override) return;
+    // A pinned weather is shown whatever the sky does: there is nothing to fetch.
+    if (this.chosenScenario?.pin?.weather) return;
     const location = this.effectiveLocation();
     const backend = this.deps.getBackend();
     if (!location || !backend) return;

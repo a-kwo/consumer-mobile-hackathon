@@ -61,6 +61,7 @@ const AT_SETTINGS: ReadonlySet<Setting> = new Set<Setting>(['gym', 'indoors', 't
 
 /**
  * "You're on 5th Avenue, in New York." / "You're in Shibuya, Tokyo." /
+ * "You're at Y Combinator, in San Francisco." (a venue: at; a street: on; a district: in) /
  * "You're at home." With no place at all, `setting` and a bare `placeName`
  * are what is left to go on.
  */
@@ -78,6 +79,14 @@ export function placeClause(
     return [quiet('You’re '), strong('somewhere without a name'), quiet('.')];
   }
   const { street, area, city } = place;
+  // A named venue ("Y Combinator, San Francisco"): one is at it, whatever street it is on.
+  const head = place.label.split(',')[0]?.trim() ?? '';
+  const same = (other: string | null) => !!other && other.trim().toLowerCase() === head.toLowerCase();
+  if (head && !same(street) && !same(area) && !same(city)) {
+    return city
+      ? [quiet('You’re at '), strong(head), quiet(', in '), strong(city), quiet('.')]
+      : [quiet('You’re at '), strong(head), quiet('.')];
+  }
   if (street) {
     return city && city !== street
       ? [quiet('You’re on '), strong(street), quiet(', in '), strong(city), quiet('.')]
@@ -117,25 +126,29 @@ function skyPhrase(weather: Weather, daylight: boolean): { lead: string; finding
   }
 }
 
-function degrees(temperatureC: number): string {
-  const rounded = Math.round(temperatureC);
+function degrees(shown: number): string {
+  const rounded = Math.round(shown);
   const word = numberWord(rounded);
   const unit = Math.abs(rounded) === 1 ? 'degree' : 'degrees';
   return rounded < 0 ? `minus ${word} ${unit}` : `${word} ${unit}`;
 }
 
-/** "The sun is out, and it's seven degrees." / "Rain is falling." / "It's twelve degrees out." */
-export function weatherClause(weather: Weather, temperatureC: number | null, localHour: number): Part[] {
+/**
+ * "Rain is falling, and it's sixty degrees." / "The sun is out." / "It's twelve
+ * degrees out." `temperature` is the number the user reads (already in their
+ * unit: see `formatTemperature`); the unit itself is never written.
+ */
+export function weatherClause(weather: Weather, temperature: number | null, localHour: number): Part[] {
   const part = timeOfDayFor(localHour);
   const sky = skyPhrase(weather, part === 'morning' || part === 'afternoon');
-  const hasTemperature = typeof temperatureC === 'number' && Number.isFinite(temperatureC);
+  const hasTemperature = typeof temperature === 'number' && Number.isFinite(temperature);
   if (!sky) {
     return hasTemperature
-      ? [quiet('It’s '), strong(degrees(temperatureC)), quiet(' out.')]
+      ? [quiet('It’s '), strong(degrees(temperature as number)), quiet(' out.')]
       : [quiet('The weather is '), strong('keeping to itself'), quiet('.')];
   }
   const parts = [quiet(sky.lead), strong(sky.finding), quiet(sky.tail)].filter((p) => p.text !== '');
-  if (hasTemperature) return [...parts, quiet(', and it’s '), strong(degrees(temperatureC)), quiet('.')];
+  if (hasTemperature) return [...parts, quiet(', and it’s '), strong(degrees(temperature as number)), quiet('.')];
   return [...parts, quiet('.')];
 }
 
@@ -214,16 +227,57 @@ const UNDERWAY: Record<Occasion, { lead: string; finding: string; tail: string }
   date: { lead: 'Your ', finding: 'date', tail: ' has begun' },
 };
 
+/** Last words that make a title read as "the …": "the Consumer Mobile YC Hackathon". */
+const EVENT_NOUNS: ReadonlySet<string> = new Set([
+  'hackathon', 'conference', 'summit', 'meetup', 'workshop', 'seminar', 'lecture', 'class', 'session',
+  'meeting', 'standup', 'review', 'interview', 'party', 'reception', 'gala', 'wedding', 'ceremony',
+  'concert', 'show', 'gig', 'festival', 'screening', 'game', 'match', 'final', 'race', 'tournament',
+  'dinner', 'lunch', 'brunch', 'breakfast', 'flight', 'train', 'appointment',
+]);
+/** Kinds of event one is "at" while they run; the others one is "in the middle of". */
+const AT_KINDS: ReadonlySet<Occasion> = new Set<Occasion>(['game', 'party', 'focus', 'date', 'workout']);
+
+/** True when "the" belongs in front of the title: it ends on an event noun and brings no article of its own. */
+function takesThe(title: string): boolean {
+  const words = title.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').trim().split(/\s+/);
+  if (words.length < 2 || ['the', 'a', 'an', 'my', 'our', 'your'].includes(words[0])) return false;
+  return EVENT_NOUNS.has(words[words.length - 1]);
+}
+
 /**
- * "You have a date in forty minutes," / "You're in the middle of a workout," /
- * "Nothing is waiting for you,". It ends on a comma: the pace clause finishes
- * the sentence.
+ * The next event, ending on a comma because the pace clause finishes the
+ * sentence. By the event's own name when it has one:
+ *   "You're at the Consumer Mobile YC Hackathon," / "Dinner with Sam is under way," /
+ *   "The Consumer Mobile YC Hackathon starts in forty minutes,"
+ * and by its kind otherwise:
+ *   "You have a date in forty minutes," / "You're in the middle of a workout," /
+ *   "Nothing is waiting for you,".
  */
-export function calendarClause(occasion: { id: Occasion; minutesUntil: number } | null): Part[] {
+export function calendarClause(
+  occasion: { id: Occasion; minutesUntil: number; title?: string | null } | null
+): Part[] {
   if (!occasion || !(occasion.id in AHEAD)) {
     return [strong('Nothing is waiting'), quiet(' for you,')];
   }
-  if (Math.round(occasion.minutesUntil) <= 0) {
+  const underway = Math.round(occasion.minutesUntil) <= 0;
+  const title = occasion.title?.trim();
+  if (title) {
+    const the = takesThe(title);
+    if (underway) {
+      if (!the) return [strong(title), quiet(' is under way,')];
+      return AT_KINDS.has(occasion.id)
+        ? [quiet('You’re at the '), strong(title), quiet(',')]
+        : [quiet('You’re in the middle of the '), strong(title), quiet(',')];
+    }
+    return [
+      ...(the ? [quiet('The ')] : []),
+      strong(title),
+      quiet(' starts in '),
+      strong(minutesPhrase(occasion.minutesUntil)),
+      quiet(','),
+    ];
+  }
+  if (underway) {
     const now = UNDERWAY[occasion.id];
     return [quiet(now.lead), strong(now.finding), quiet(`${now.tail},`)];
   }
@@ -240,10 +294,13 @@ export function calendarClause(occasion: { id: Occasion; minutesUntil: number } 
 // --------------------------------------------------------------------- pace
 
 /** "and you're walking at an easy, steady pace." It finishes the calendar clause's sentence. */
-export function paceClause(cadenceSpm: number): Part[] {
+export function paceClause(cadenceSpm: number, setting: Setting = 'any'): Part[] {
   switch (paceFor(cadenceSpm)) {
     case 'still':
-      return [quiet('and you’re '), strong('standing still'), quiet('.')];
+      // Indoors or in transit one is more likely in a seat than on one's feet.
+      return setting === 'indoors' || setting === 'transit'
+        ? [quiet('and you’re '), strong('sitting still'), quiet('.')]
+        : [quiet('and you’re '), strong('standing still'), quiet('.')];
     case 'stroll':
       return [quiet('and you’re '), strong('walking slowly'), quiet('.')];
     case 'walk':

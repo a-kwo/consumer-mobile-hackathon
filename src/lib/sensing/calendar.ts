@@ -17,12 +17,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { type CalendarEvent, type OccasionEvent, occasionEventsFrom } from '../../../convex/lib/occasion';
+import {
+  type CalendarEvent,
+  type OccasionEvent,
+  classifyTitle,
+  occasionEventsFrom,
+} from '../../../convex/lib/occasion';
 import { TUNING } from '../../../convex/tuning';
 import { CONFIG } from '../score/config';
 import type { CalendarAccess } from '../score/types';
 
 const MINUTE_MS = 60 * 1000;
+
+/**
+ * A recognised event with its own title kept beside it. The title is for the
+ * screen only: nothing built from it is sent anywhere.
+ */
+export type TitledOccasionEvent = OccasionEvent & { title?: string };
 
 async function loadModule(): Promise<typeof import('expo-calendar') | null> {
   if (Platform.OS === 'web') return null;
@@ -54,7 +65,7 @@ const toMs = (value: string | Date | null | undefined) => (value ? new Date(valu
  * The recognised events that are running at `nowMs` or start within the lead
  * window, as occasion ids and times. Rejects when the calendar cannot be read.
  */
-export async function readOccasionEvents(nowMs: number): Promise<OccasionEvent[]> {
+export async function readOccasionEvents(nowMs: number): Promise<TitledOccasionEvent[]> {
   const Calendar = await loadModule();
   if (!Calendar) return [];
   const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
@@ -75,7 +86,17 @@ export async function readOccasionEvents(nowMs: number): Promise<OccasionEvent[]
       allDay: event.allDay === true,
     });
   }
-  return occasionEventsFrom(read);
+  // Classification drops the titles; put each back beside its event, for display only.
+  return occasionEventsFrom(read).map((found) => {
+    const source = read.find(
+      (event) =>
+        event.startMs === found.startMs &&
+        event.endMs === found.endMs &&
+        classifyTitle(event.title) === found.id,
+    );
+    const title = source?.title.trim();
+    return title ? { ...found, title } : found;
+  });
 }
 
 /** Whether the user turned calendar reading on. Never rejects. */

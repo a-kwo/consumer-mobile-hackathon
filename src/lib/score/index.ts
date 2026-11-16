@@ -67,11 +67,26 @@
  *       `buildScene(context + energy bias)`: `scene.label` is the title card.
  *       They keep updating while a session runs.
  *       `demo`: { scenarios: { id, label }[], activeId, choose(id | null) }.
- *       With nothing chosen, a scenario only fills the signals the device
- *       cannot give, a different one each setup, in rotation. `choose(id)`
- *       is the presenter's control: that scenario's place, pace, event and
- *       any pinned weather and hour then override the device, until
- *       `choose(null)`. It takes effect at once, also mid-session.
+ *       On a real phone nothing is chosen at first (`activeId` null): a
+ *       scenario only fills the signals the device cannot give, a different
+ *       one each setup, in rotation. On a simulator, an emulator, a cloud
+ *       device or the web build the app is a demo: until the presenter
+ *       chooses, `activeId` is 'yc-hackathon' and every run shows the YC
+ *       office, rain at 60°F and the hackathon, with no permission prompt.
+ *       `choose(id)` is the presenter's control: that scenario's place, pace,
+ *       event and any pinned weather and hour override the device.
+ *       `choose(null)` ("Automatic") goes back to real signals first with
+ *       rotation, on a demo environment too, for the rest of the session.
+ *       Either takes effect at once, also mid-session.
+ *       `occasion`: { id, minutesUntil, title? } | null. `occasion.title` is
+ *       the event's own name ("Consumer Mobile YC Hackathon"), for a scenario
+ *       event and for a real calendar event alike. It is kept on the device
+ *       for display only: picks and logged plays carry the kind (`id`) and
+ *       the minutes, never a title.
+ *       Temperatures are Celsius throughout (`live.temperatureC`,
+ *       `context.temperatureC`). For display use
+ *       `formatTemperature(celsius)` -> { value, unit: 'F' | 'C' }: Fahrenheit
+ *       where the device's region is the United States, Celsius elsewhere.
  *       `location`: { label, street, area, city, setting, lat, lon,
  *       source: 'device' | 'chosen' | 'demo' } | null. Show `location.label`.
  *       It is null before the first setup, and in the "at home" scenario.
@@ -142,6 +157,8 @@
  *     that file does not cover live in `./config`.
  */
 export { ScoreProvider } from './provider';
+export { formatTemperature } from './temperature';
+export type { DisplayTemperature } from './temperature';
 export { useProfile, usePlaybackProgress, useReplay, useSensing, useSession, useSetup } from './hooks';
 export type { ProfileApi, ReplayApi, SensingApi, SessionApi, SetupApi } from './hooks';
 export type {
@@ -159,6 +176,7 @@ export type {
   ReplayStatus,
   SavedPlace,
   ScoreLocation,
+  ScoreOccasion,
   SessionStatus,
   SetupSnapshot,
   SetupStep,

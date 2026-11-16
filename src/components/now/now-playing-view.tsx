@@ -193,6 +193,7 @@ export function NowPlayingView({ session, sensing }: Props) {
           align="center"
           context={sensing.context}
           location={sensing.location}
+          occasionTitle={sensing.occasion?.title}
           nudge={nudge}
           playingScene={session.scene}
           scene={sensing.scene}

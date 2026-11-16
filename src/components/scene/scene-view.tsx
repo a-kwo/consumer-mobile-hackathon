@@ -4,7 +4,7 @@ import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'r
 
 import { LiveEqualizer } from '@/components/now/playback-readout';
 import { AppText, CoverArt, Icon, PillButton, PressableScale } from '@/components/ui';
-import type { SensingApi, SessionApi, SetupStep } from '@/lib/score';
+import { formatTemperature, type SensingApi, type SessionApi, type SetupStep } from '@/lib/score';
 import { colors, radius, sizes, space } from '@/theme';
 
 import { DemoSheet } from './demo-sheet';
@@ -99,10 +99,14 @@ export function SceneView({ sensing, session }: Props) {
   const { context, location, occasion } = sensing;
   const clauses: Record<StepId, Part[]> = {
     place: placeClause(location, { setting: context.setting, placeName: context.placeName }),
-    weather: weatherClause(context.weather, context.temperatureC ?? null, context.localHour),
+    weather: weatherClause(
+      context.weather,
+      typeof context.temperatureC === 'number' ? formatTemperature(context.temperatureC).value : null,
+      context.localHour
+    ),
     time: timeClause(new Date().getDay(), context.localHour),
     calendar: calendarClause(occasion),
-    pace: paceClause(context.cadenceSpm),
+    pace: paceClause(context.cadenceSpm, context.setting),
     music: songClause(
       session.track?.title ?? setup.steps.find((step) => step.id === 'music')?.detail?.split(' · ')[0]
     ),

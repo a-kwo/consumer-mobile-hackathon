@@ -27,18 +27,41 @@ export type Scenario = {
   /** Null for "at home": no address, no coordinates. */
   place: ScenarioPlace | null;
   setting: Setting;
-  /** Steps per minute, and how far it drifts either side. */
-  pace: { base: number; drift: number };
-  /** An event coming up when the scenario begins, or none. */
-  event: { occasion: Occasion; minutesUntil: number } | null;
+  /**
+   * Steps per minute, and how far it drifts either side. With `stroll`, someone
+   * otherwise at rest gets up now and then: every `everyS` seconds, for `forS`
+   * seconds, the cadence rises to `peak` and falls back.
+   */
+  pace: { base: number; drift: number; stroll?: { everyS: number; forS: number; peak: number } };
+  /** An event coming up (or under way, at zero minutes) when the scenario begins, or none. `title` is shown, never sent. */
+  event: { occasion: Occasion; minutesUntil: number; title?: string } | null;
   /** Used when the real weather at the place cannot be fetched. */
   fallbackWeather: Weather;
   /** Only when the scenario is chosen outright: the weather and hour to show regardless of reality. */
-  pin?: { weather?: Weather; hour?: number };
+  pin?: { weather?: Weather; temperatureC?: number; hour?: number };
 };
 
-/** In rotation order. */
+/** In rotation order. The first is also the default on simulators, cloud devices and the web build. */
 export const SCENARIOS: readonly Scenario[] = [
+  {
+    id: 'yc-hackathon',
+    label: 'At the YC hackathon',
+    place: {
+      label: 'Y Combinator, San Francisco',
+      street: '20th Street',
+      area: 'Dogpatch',
+      city: 'San Francisco',
+      lat: 37.7609,
+      lon: -122.3871,
+    },
+    // At a desk, indoors; the event below is what keeps the music focused rather than sleepy.
+    setting: 'indoors',
+    pace: { base: 0, drift: 0, stroll: { everyS: 80, forS: 14, peak: 64 } },
+    event: { occasion: 'focus', minutesUntil: 0, title: 'Consumer Mobile YC Hackathon' },
+    fallbackWeather: 'rain',
+    // Rain at 60°F, the same every run.
+    pin: { weather: 'rain', temperatureC: 15.5 },
+  },
   {
     id: 'fifth-avenue',
     label: 'Walking up 5th Avenue',
@@ -124,8 +147,13 @@ export function scenarioById(id: string | null | undefined): Scenario | null {
  * way a real walk never holds one number. Deterministic, whole steps.
  */
 export function demoCadence(pace: Scenario['pace'], nowMs: number): number {
-  if (pace.base <= 0) return 0;
   const seconds = nowMs / 1000;
+  if (pace.stroll) {
+    const { everyS, forS, peak } = pace.stroll;
+    const phase = ((seconds % everyS) + everyS) % everyS;
+    if (phase < forS) return Math.round(peak * Math.sin((Math.PI * phase) / forS));
+  }
+  if (pace.base <= 0) return 0;
   const wander = 0.7 * Math.sin(seconds / 11) + 0.3 * Math.sin(seconds / 3.7);
   return Math.max(0, Math.round(pace.base + pace.drift * wander));
 }
