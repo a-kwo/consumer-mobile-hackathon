@@ -2,17 +2,24 @@ import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 
-import { sceneSentence } from '@/components/now/format';
 import { LiveEqualizer } from '@/components/now/playback-readout';
 import { AppText, CoverArt, Icon, PillButton, PressableScale } from '@/components/ui';
-import type { SensingApi, SessionApi } from '@/lib/score';
-import { colors, fonts, radius, sizes, space } from '@/theme';
+import type { SensingApi, SessionApi, SetupStep } from '@/lib/score';
+import { colors, radius, sizes, space } from '@/theme';
 
 import { DemoSheet } from './demo-sheet';
-import { FindingRow } from './finding-row';
 import { BUTTON_SIZE, Instrument, type InstrumentPhase } from './instrument';
-import { Dissolve, Rise } from './motion';
-import { STEP_LABEL, liveFindings, type StepId } from './steps';
+import { Rise } from './motion';
+import {
+  calendarClause,
+  paceClause,
+  placeClause,
+  songClause,
+  timeClause,
+  weatherClause,
+  type Part,
+} from './passage';
+import { PassageView, type PassageLine } from './passage-view';
 
 /** How long the finished reading stays on screen before the app moves to Now. */
 const HANDOFF_MS = 900;
@@ -25,21 +32,26 @@ type Props = {
   session: SessionApi;
 };
 
-type Row = { id: StepId; text: string; working: boolean };
+type StepId = SetupStep['id'];
+
+/** The clauses of the living paragraph, once the scene is set. */
+const LIVING: readonly StepId[] = ['place', 'weather', 'time', 'calendar', 'pace'];
 
 /**
  * The Scene screen, in its three states:
  *
  * - at rest: the wordmark, one line, and the large "Set the scene" button with
  *   the figure settling around it;
- * - reading the moment: the button draws in, the engine's steps appear one at
- *   a time and resolve into findings, and the scene sentence composes itself
- *   above them. When the first song is picked the app moves to Now by itself;
- * - set: the same findings as a quiet list that follows the live context, the
- *   song that is playing, and a control to read the moment again.
+ * - reading the moment: the button draws in and a short passage composes
+ *   itself under it, a clause for each of the engine's steps: an unfinished
+ *   phrase while the step works, the finished clause when it resolves, and
+ *   the first song as the payoff. Then the app moves to Now by itself;
+ * - set: the same passage as a living paragraph that rewrites a clause when
+ *   that part of the context changes, the song that is playing, and a control
+ *   to read the moment again.
  *
- * The rows keep their identity across the last two states, so the reading
- * turns into the list without anything being redrawn.
+ * The clauses keep their identity across the last two states, so the reading
+ * turns into the paragraph without anything being redrawn.
  */
 export function SceneView({ sensing, session }: Props) {
   const focused = useIsFocused();
@@ -76,26 +88,41 @@ export function SceneView({ sensing, session }: Props) {
     BUTTON_SIZE + space.xl,
     available - HEADER_HEIGHT - HEADLINE_HEIGHT - space.lg * 2 - (failed ? 104 : 0)
   );
-  const stageHeight = phase === 'rest' ? restHeight : phase === 'reading' ? (compact ? 116 : 190) : 0;
+  const stageHeight = phase === 'rest' ? restHeight : phase === 'reading' ? (compact ? 132 : 210) : 0;
 
   const done = setup.steps.filter((step) => step.status === 'done').length;
   const targetEnergy = setup.scene?.energy ?? 0.5;
   const figureEnergy = reading ? 0.1 + (done / Math.max(1, setup.steps.length)) * targetEnergy : 0.1;
 
-  const rows: Row[] = reading
+  // The moment, from the live values. A clause is written once its step has
+  // resolved, and rewritten whenever that part of the context changes.
+  const { context, location, occasion } = sensing;
+  const clauses: Record<StepId, Part[]> = {
+    place: placeClause(location, { setting: context.setting, placeName: context.placeName }),
+    weather: weatherClause(context.weather, context.temperatureC ?? null, context.localHour),
+    time: timeClause(new Date().getDay(), context.localHour),
+    calendar: calendarClause(occasion),
+    pace: paceClause(context.cadenceSpm),
+    music: songClause(
+      session.track?.title ?? setup.steps.find((step) => step.id === 'music')?.detail?.split(' · ')[0]
+    ),
+  };
+  // Place, weather and time are a sentence each; the calendar and the pace
+  // share one; the first song stands apart as the payoff.
+  const apart = (id: StepId) => id === 'calendar' || id === 'music';
+  const lines: PassageLine[] = reading
     ? setup.steps
         .filter((step) => step.status !== 'waiting')
         .map((step) => ({
           id: step.id,
-          text: step.status === 'done' ? (step.detail ?? step.title) : step.title,
-          working: step.status === 'working',
+          working: step.status === 'working' ? step.title : null,
+          parts: step.status === 'done' ? clauses[step.id] : null,
+          apart: apart(step.id),
         }))
     : isSet
-      ? liveFindings(sensing).map((finding) => ({ ...finding, working: false }))
+      ? LIVING.map((id) => ({ id, working: null, parts: clauses[id], apart: apart(id) }))
       : [];
 
-  const scene = isSet ? sensing.scene : setup.scene;
-  const sentence = scene ? sceneSentence(scene) : null;
   const { track } = session;
   const sessionActive = session.status !== 'idle';
 
@@ -107,29 +134,15 @@ export function SceneView({ sensing, session }: Props) {
         </AppText>
       </Rise>
 
-      <View style={phase === 'rest' ? styles.headline : styles.headlineOpen}>
-        {phase === 'rest' ? (
+      {phase === 'rest' ? (
+        <View style={styles.headline}>
           <Rise delay={140} key={failed ? 'failed' : 'rest'}>
             <AppText adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={2} variant="screenTitle">
               {failed ? 'That didn’t come together.' : 'What does right now sound like?'}
             </AppText>
           </Rise>
-        ) : (
-          // Keyed by its words: each time the sentence changes, the new one dissolves in.
-          <Dissolve duration={600} key={sentence ?? 'reading'}>
-            <AppText
-              accessibilityRole="header"
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-              numberOfLines={3}
-              style={compact ? styles.sentenceCompact : styles.sentence}
-              testID="scene-sentence"
-              tone={sentence ? 'primary' : 'muted'}>
-              {sentence ?? 'Reading the moment…'}
-            </AppText>
-          </Dissolve>
-        )}
-      </View>
+        </View>
+      ) : null}
 
       <Instrument
         active={focused}
@@ -152,20 +165,7 @@ export function SceneView({ sensing, session }: Props) {
         </Rise>
       ) : null}
 
-      {rows.length > 0 ? (
-        <View style={styles.list} testID="scene-steps">
-          {rows.map((row, index) => (
-            <FindingRow
-              divided={index > 0}
-              id={row.id}
-              key={row.id}
-              label={STEP_LABEL[row.id]}
-              text={row.text}
-              working={row.working}
-            />
-          ))}
-        </View>
-      ) : null}
+      {lines.length > 0 ? <PassageView compact={compact} lines={lines} /> : null}
 
       {isSet ? (
         <Rise delay={120} style={styles.note}>
@@ -243,23 +243,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     zIndex: 1,
   },
-  headlineOpen: {
-    minHeight: 60,
-    justifyContent: 'flex-end',
-    zIndex: 1,
-  },
-  sentence: {
-    fontFamily: fonts.serifItalic,
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  sentenceCompact: {
-    fontFamily: fonts.serifItalic,
-    fontSize: 24,
-    lineHeight: 30,
-  },
   note: {
-    marginTop: -space.xs,
+    marginTop: space.xs,
   },
   failure: {
     alignItems: 'center',
