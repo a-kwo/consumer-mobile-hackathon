@@ -21,6 +21,7 @@ export type PlaceGlobeProps = {
 };
 
 const ZOOM = 2.6;
+const SPOT = 12;
 
 /**
  * A still of the friends globe, turned to one place and seen close, with a
@@ -60,10 +61,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.cover,
     backgroundColor: colors.paper,
   },
+  // Centred on the pin's origin with plain offsets.
   spot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    position: 'absolute',
+    left: -SPOT / 2,
+    top: -SPOT / 2,
+    width: SPOT,
+    height: SPOT,
+    borderRadius: SPOT / 2,
     borderWidth: 2.5,
     borderColor: colors.paperRaised,
     ...shadows.raised,

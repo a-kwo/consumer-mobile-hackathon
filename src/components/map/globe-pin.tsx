@@ -16,9 +16,11 @@ export type GlobePinProps = {
 };
 
 /**
- * Pins its children to a place on the globe. The children are centred on the
- * place and keep their size whatever the zoom. As the place turns towards the
- * edge they fade, and on the far side they are gone (and cannot be tapped).
+ * Pins its children to a place on the globe: it is a zero-size origin moved
+ * onto the place. Children position themselves around that origin with plain
+ * offsets (it does no centring for them) and keep their size whatever the
+ * zoom. As the place turns towards the edge they fade, and on the far side
+ * they are gone (and cannot be tapped).
  */
 export function GlobePin({ lat, lon, frame, camera, zIndex = 1, children }: GlobePinProps) {
   const { width, height, radius } = frame;
@@ -43,14 +45,12 @@ export function GlobePin({ lat, lon, frame, camera, zIndex = 1, children }: Glob
 }
 
 const styles = StyleSheet.create({
-  // A zero-size box moved onto the place; whatever it holds is centred on it.
+  // A zero-size origin, moved onto the place.
   pin: {
     position: 'absolute',
     left: 0,
     top: 0,
     width: 0,
     height: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

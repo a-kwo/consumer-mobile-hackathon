@@ -31,6 +31,10 @@ export type MapMarkerProps = {
 
 const SIZE = 30;
 const SELECTED_SIZE = 40;
+/** Width of the column that holds the circle and the words under it. */
+const COLUMN_WIDTH = 120;
+/** Diameter of the "you" grain. */
+const ME_SIZE = 12;
 
 const pulse = css.keyframes({
   "0%": { transform: [{ scale: 1 }], opacity: 0.5 },
@@ -43,6 +47,13 @@ const pulse = css.keyframes({
  * name underneath, and a grain of ink on the exact spot. Put it inside a
  * `GlobePin`. It may sit a little off its spot so neighbours stay visible; a
  * hairline ties it back, and it slides home as the globe zooms in.
+ *
+ * Layout: the pin gives a zero-size origin on the spot. The circle and the
+ * words are an ordinary column (circle, then words underneath), placed with
+ * plain numbers so that the centre of the circle is on the origin. Nothing is
+ * positioned with a percentage: inside a zero-size parent, React Native
+ * resolves a percentage offset to zero, which once put the words on top of
+ * the circle on iOS and Android while the browser put them underneath.
  */
 export function MapMarker({
   offset,
@@ -84,7 +95,8 @@ export function MapMarker({
       ) : null}
       <View style={styles.spot} />
       <Animated.View style={[styles.body, body]}>
-        <View style={styles.centred}>
+        {/* The column's top is half a circle above the origin, so the circle is centred on it. */}
+        <View style={[styles.column, { top: -size / 2 }]}>
           <Pressable
             accessibilityHint="Shows their day on the map"
             accessibilityLabel={`${name}${detail ? `, ${detail}` : ""}`}
@@ -140,8 +152,7 @@ export function MapMarker({
                 </View>
               ) : null}
             </View>
-            <View style={styles.label}>
-              <View style={styles.plate}>
+            <View style={[styles.plate, styles.label]}>
                 <AppText
                   allowFontScaling={false}
                   numberOfLines={1}
@@ -158,7 +169,6 @@ export function MapMarker({
                     {detail}
                   </AppText>
                 ) : null}
-              </View>
             </View>
           </Pressable>
         </View>
@@ -173,12 +183,11 @@ export function MeMarker({ label }: { label: string }) {
     <View
       accessibilityLabel={`You${label ? `, ${label}` : ""}`}
       accessible
+      style={styles.anchor}
       testID="feed-marker-me"
     >
-      <View style={styles.body}>
-        <View style={styles.me} />
-      </View>
-      <View style={styles.meLabel}>
+      <View style={styles.me} />
+      <View style={styles.meColumn}>
         <View style={styles.plate}>
           <AppText
             allowFontScaling={false}
@@ -199,9 +208,6 @@ const styles = StyleSheet.create({
     width: 0,
     height: 0,
   },
-  centred: {
-    alignItems: "center",
-  },
   spot: {
     position: "absolute",
     left: -2,
@@ -219,16 +225,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inkMuted,
     transformOrigin: "left center",
   },
-  // Zero-size and centred: whatever it holds is centred on the spot.
+  // A zero-size origin on the spot. It only carries the crowding offset.
   body: {
     position: "absolute",
     left: 0,
     top: 0,
     width: 0,
     height: 0,
-    alignItems: "center",
-    justifyContent: "center",
   },
+  // A fixed-width column, centred on the origin from side to side.
+  column: {
+    position: "absolute",
+    left: -COLUMN_WIDTH / 2,
+    width: COLUMN_WIDTH,
+    alignItems: "center",
+  },
+  // The circle, then the words under it.
   press: {
     alignItems: "center",
   },
@@ -257,16 +269,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.paperRaised,
   },
-  // The label hangs under the avatar without moving it off its spot.
+  // Under the circle, in normal flow.
   label: {
-    position: "absolute",
-    top: "100%",
     marginTop: 2,
-    width: 110,
-    alignItems: "center",
   },
   // A wash of paper behind the words, so the land's grains do not run through them.
   plate: {
+    maxWidth: COLUMN_WIDTH,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 7,
@@ -292,20 +301,25 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     textAlign: "center",
   },
+  // Centred on the origin with plain offsets.
   me: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    position: "absolute",
+    left: -ME_SIZE / 2,
+    top: -ME_SIZE / 2,
+    width: ME_SIZE,
+    height: ME_SIZE,
+    borderRadius: ME_SIZE / 2,
     borderWidth: 2.5,
     borderColor: colors.paperRaised,
     backgroundColor: colors.ink,
     ...shadows.raised,
   },
-  meLabel: {
+  // The word hangs just under the grain.
+  meColumn: {
     position: "absolute",
-    top: 8,
-    left: -30,
-    width: 60,
+    top: ME_SIZE / 2 + 2,
+    left: -COLUMN_WIDTH / 2,
+    width: COLUMN_WIDTH,
     alignItems: "center",
   },
 });
