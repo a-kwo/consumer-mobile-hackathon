@@ -1,6 +1,7 @@
 {
   "name": "consumer-mobile-hackathon",
   "version": "1.0.0",
+  "description": "Rubato: a soundtrack for whatever you're doing right now. Expo app with a Convex backend.",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",
