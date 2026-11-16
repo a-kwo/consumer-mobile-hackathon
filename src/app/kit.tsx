@@ -84,7 +84,7 @@ const CUES = [
 const COVERS = CUES.map((cue) => cue.coverUrl);
 
 const TYPE_ROLES: { variant: TextVariant; spec: string; sample: string }[] = [
-  { variant: 'wordmark', spec: 'Fraunces 500 · 22', sample: 'Score' },
+  { variant: 'wordmark', spec: 'Fraunces 500 · 22', sample: 'Rubato' },
   { variant: 'songTitle', spec: 'Fraunces 500 · 34 / 40', sample: 'No Surprises' },
   { variant: 'screenTitle', spec: 'Fraunces 500 · 30 / 34', sample: "Today's soundtrack" },
   { variant: 'entryTitle', spec: 'Fraunces 400 · 17 / 22', sample: 'Rain on 4th Street' },
@@ -164,7 +164,7 @@ export default function KitScreen() {
       <View style={styles.header}>
         <View style={styles.wordmark}>
           <BrandMark size={24} />
-          <AppText variant="wordmark">Score</AppText>
+          <AppText variant="wordmark">Rubato</AppText>
         </View>
         <LiveBadge label={source === 'live' ? 'Live sensors' : 'Set by hand'} />
       </View>
@@ -434,7 +434,7 @@ export default function KitScreen() {
           actionLabel="Retry"
           message="Check your connection and try again."
           onAction={() => setNoticeVisible(true)}
-          title="Could not reach Score"
+          title="Could not reach Rubato"
           tone="error"
         />
         <Notice message="Soundtrack card saved to your photos." tone="success" />

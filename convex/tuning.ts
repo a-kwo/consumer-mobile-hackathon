@@ -96,7 +96,7 @@ export const TUNING = {
   /** Give up on the weather API after this long and use a stale cache row, or `any`. */
   weatherTimeoutMs: 2500,
   /** Sent to the weather APIs. MET Norway refuses requests without a User-Agent. */
-  weatherUserAgent: 'Score/1.0 hackathon prototype',
+  weatherUserAgent: 'Rubato/1.0 hackathon prototype',
   /** Naming places (places:reverse and places:search), through OpenStreetMap geocoders. */
   geocode: {
     /** Reverse lookups are cached per cell this size: 0.0005 degrees is about 50 m. */

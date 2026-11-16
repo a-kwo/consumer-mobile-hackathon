@@ -125,7 +125,7 @@ export default function FriendsScreen() {
             onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
             style={[styles.header, { paddingTop: insets.top + space.sm }]}>
             <View style={styles.topBar}>
-              <AppText variant="wordmark">Score</AppText>
+              <AppText variant="wordmark">Rubato</AppText>
               <PressableScale
                 accessibilityHint="Edit your name and emoji"
                 accessibilityLabel={`Your profile${profile ? `, ${profile.displayName}` : ''}`}

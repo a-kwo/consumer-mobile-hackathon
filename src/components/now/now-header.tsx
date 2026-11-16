@@ -7,7 +7,7 @@ export function NowHeader() {
   return (
     <View style={styles.row}>
       <AppText accessibilityRole="header" variant="wordmark">
-        Score
+        Rubato
       </AppText>
     </View>
   );

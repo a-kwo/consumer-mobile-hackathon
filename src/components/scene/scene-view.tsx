@@ -130,7 +130,7 @@ export function SceneView({ sensing, session }: Props) {
     <View onLayout={onLayout} style={styles.root}>
       <Rise style={styles.header}>
         <AppText accessibilityRole="header" variant="wordmark">
-          Score
+          Rubato
         </AppText>
       </Rise>
 
@@ -159,7 +159,7 @@ export function SceneView({ sensing, session }: Props) {
       {failed ? (
         <Rise style={styles.failure}>
           <AppText align="center" numberOfLines={3} testID="scene-error" tone="soft" variant="body">
-            {setup.error ?? 'Score couldn’t read the moment just now.'}
+            {setup.error ?? 'Rubato couldn’t read the moment just now.'}
           </AppText>
           <PillButton label="Try again" onPress={beginSetup} size="sm" testID="scene-retry" />
         </Rise>
@@ -171,7 +171,7 @@ export function SceneView({ sensing, session }: Props) {
         <Rise delay={120} style={styles.note}>
           <AppText tone="muted" variant="meta">
             {sessionActive
-              ? 'Score keeps listening, and the music follows as this changes.'
+              ? 'Rubato keeps listening, and the music follows as this changes.'
               : 'The music has stopped. Set the scene again to bring it back.'}
           </AppText>
         </Rise>

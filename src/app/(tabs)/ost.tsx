@@ -253,7 +253,7 @@ export default function SoundtrackScreen() {
   const header = (
     <View style={styles.header}>
       <View style={styles.topBar}>
-        <AppText variant="wordmark">Score</AppText>
+        <AppText variant="wordmark">Rubato</AppText>
         <View style={styles.dayNav}>
           <IconButton
             accessibilityLabel="Previous day"

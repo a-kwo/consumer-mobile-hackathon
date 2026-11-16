@@ -1,6 +1,6 @@
-# Score
+# Rubato
 
-Score reads your pace, the weather, the time of day and where you are, plays the song that fits the moment, and turns the day into a soundtrack you can share. The design and status are in `PLAN.md`; the look is specified in `05-visual-identity.md`.
+Rubato reads your pace, the weather, the time of day and where you are, plays the song that fits the moment, and turns the day into a soundtrack you can share. The design and status are in `PLAN.md`; the look is specified in `05-visual-identity.md`.
 
 ## Run it
 

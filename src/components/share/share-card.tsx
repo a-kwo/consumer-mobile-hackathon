@@ -97,7 +97,7 @@ export function ShareCard({
           <AppText
             allowFontScaling={false}
             style={[styles.titleFace, text(18, 24), { letterSpacing: -0.18 * u }]}>
-            Score
+            Rubato
           </AppText>
         </View>
         <AppText allowFontScaling={false} style={[styles.sans, text(11, 16)]} tone="muted">

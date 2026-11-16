@@ -35,7 +35,7 @@ export function NowEmptyView({ session, replay }: Props) {
         </Rise>
         <Rise delay={180}>
           <AppText align="center" style={styles.body} tone="muted" variant="body">
-            Score reads where you are, the weather, the hour and your day, then plays what fits.
+            Rubato reads where you are, the weather, the hour and your day, then plays what fits.
           </AppText>
         </Rise>
       </View>

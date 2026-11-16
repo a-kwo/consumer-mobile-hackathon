@@ -60,7 +60,7 @@ const EXTENT = 31 + DOT;
 export function BrandMark({ size = 28, color = colors.ink, style }: BrandMarkProps) {
   return (
     <Svg
-      accessibilityLabel="Score"
+      accessibilityLabel="Rubato"
       accessibilityRole="image"
       height={size}
       style={style}

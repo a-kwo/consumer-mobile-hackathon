@@ -1,4 +1,6 @@
-# Score — Hackathon Build Plan (Convex + Revyl edition)
+# Rubato — Hackathon Build Plan (Convex + Revyl edition)
+
+The app was named Score until Nov 15; older sections and file names still say Score.
 
 Adapted on Nov 15, 2026 from `Score — Hackathon Build Plan.pdf`. The product scope is unchanged. What changed is the backend (Convex replaces FastAPI and SQLite), the repo layout, hosting, and how each change is verified (Revyl Proof of Changes on every pull request).
 
