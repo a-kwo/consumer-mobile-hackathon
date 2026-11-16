@@ -137,7 +137,12 @@ export const log = mutation({
   handler: async (ctx, args) => (isClientDeviceId(args.deviceId) ? recordPlay(ctx, args) : null),
 });
 
-/** Marks a play as skipped, which hides it from the soundtrack. CONTRACT: frozen. */
+/**
+ * Marks a play as skipped. A play skipped within `skipHideMs` of starting was
+ * never really heard and is hidden from the soundtrack; skipped later, it was
+ * part of the day and stays. The server's clock is compared with the play's
+ * `startedAt`, which came from the phone. CONTRACT: frozen.
+ */
 export const markSkipped = mutation({
   args: { deviceId: v.string(), playId: v.id('plays') },
   returns: v.null(),
@@ -146,7 +151,8 @@ export const markSkipped = mutation({
     const play = await ctx.db.get('plays', playId);
     // Someone else's play, or one that is already gone: nothing to do.
     if (!play || play.deviceId !== deviceId || play.skipped) return null;
-    await ctx.db.patch('plays', playId, { skipped: true });
+    const hidden = Date.now() - play.startedAt < TUNING.skipHideMs;
+    await ctx.db.patch('plays', playId, hidden ? { skipped: true, hidden: true } : { skipped: true });
     return null;
   },
 });

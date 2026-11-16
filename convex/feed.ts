@@ -98,7 +98,7 @@ export const list = query({
             .query('plays')
             .withIndex('by_device_startedAt', (q) => q.eq('deviceId', profile.deviceId).gte('startedAt', since))
             .order('desc')
-            .filter((q) => q.eq(q.field('skipped'), false))
+            .filter((q) => q.neq(q.field('hidden'), true))
             .take(maxPerProfile),
           // Every day that can overlap the window: a day is at most `dayMs.max` long.
           ctx.db

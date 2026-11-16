@@ -4,7 +4,7 @@
 //
 // Talks to the deployment in EXPO_PUBLIC_CONVEX_URL (read from .env.local) as a
 // throwaway `sim-smoke-…` device, which the feed ignores. Exits non-zero on the
-// first failed check. It leaves one skipped play behind; remove test plays with
+// first failed check. It leaves two skipped plays behind; remove test plays with
 //   npx convex run plays:purgeTestDevices '{"prefix":"sim-smoke-"}'
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -150,9 +150,21 @@ if (slow.tracks.length > 0 && fast.tracks.length > 0) {
   await client.mutation(anyApi.plays.markSkipped, { deviceId: `${deviceId}-someone-else`, playId });
   const untouched = await client.query(anyApi.ost.get, day);
   check(untouched.entries.length === 1, 'another device cannot skip the play');
+
+  // A play skipped at once was never heard and leaves the soundtrack; one skipped
+  // after ten seconds was part of the day and stays.
   await client.mutation(anyApi.plays.markSkipped, { deviceId, playId });
-  const skipped = await client.query(anyApi.ost.get, day);
-  check(skipped.entries.length === 0 && skipped.summary === '', 'a skipped play leaves the soundtrack');
+  const skippedAtOnce = await client.query(anyApi.ost.get, day);
+  check(skippedAtOnce.entries.length === 0 && skippedAtOnce.summary === '', 'a play skipped after 1 s leaves the soundtrack');
+
+  const other = fast.tracks[1] ?? slow.tracks[0];
+  const heardId = await client.mutation(anyApi.plays.log, { ...logged, deezerId: other.deezerId, startedAt: Date.now() - 10_000 });
+  await client.mutation(anyApi.plays.markSkipped, { deviceId, playId: heardId });
+  const skippedLater = await client.query(anyApi.ost.get, day);
+  check(
+    skippedLater.entries.length === 1 && skippedLater.entries[0].playId === heardId,
+    'a play skipped after 10 s stays in the soundtrack',
+  );
 
   const replay = await client.action(anyApi.tracks.preview, { deezerId: sample.deezerId });
   check(/^https?:\/\//.test(replay.previewUrl ?? ''), 'tracks:preview returns a fresh URL for replay');

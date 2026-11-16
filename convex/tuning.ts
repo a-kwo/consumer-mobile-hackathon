@@ -120,6 +120,11 @@ export const TUNING = {
     queryMaxChars: 80,
     maxResults: 5,
   },
+  /**
+   * A play skipped sooner than this after it started was not really heard, and is
+   * left out of the soundtrack. Skipped later, it stays: people skip a lot.
+   */
+  skipHideMs: 4000,
   /** Longer deviceIds are refused. */
   maxDeviceIdChars: 64,
 

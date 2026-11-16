@@ -81,7 +81,14 @@ export default defineSchema({
     reason: v.string(),
     /** Generated at log time, e.g. "Rain on 4th Street, 6:12pm". */
     title: v.string(),
+    /** The user skipped it. On its own this does not hide the play: see `hidden`. */
     skipped: v.boolean(),
+    /**
+     * True when the play was skipped before it was really heard (within
+     * `TUNING.skipHideMs` of starting): it is left out of soundtracks and the feed.
+     * Absent means visible. Picks still count it as recently played.
+     */
+    hidden: v.optional(v.boolean()),
   })
     .index('by_device_startedAt', ['deviceId', 'startedAt'])
     /** For tracks:preview, which may need the names of a song that has left the library. */

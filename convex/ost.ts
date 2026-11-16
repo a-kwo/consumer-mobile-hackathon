@@ -71,7 +71,7 @@ export const get = query({
           q.eq('deviceId', deviceId).gte('startedAt', dayStart).lt('startedAt', dayEnd),
         )
         .order('desc')
-        .filter((q) => q.eq(q.field('skipped'), false))
+        .filter((q) => q.neq(q.field('hidden'), true))
         .take(TUNING.ostMaxEntries),
       ctx.db
         .query('osts')

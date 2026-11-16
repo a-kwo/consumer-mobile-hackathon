@@ -5,6 +5,7 @@
 import { v } from 'convex/values';
 
 import { internalMutation } from './_generated/server';
+import { TUNING } from './tuning';
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -38,6 +39,31 @@ export const patchCoverColors = internalMutation({
       }
     }
     return counts;
+  },
+});
+
+/**
+ * One-off, for the change from "every skipped play is hidden" to "only plays
+ * skipped at once are": skipped plays from before `since` are marked hidden, as
+ * they always were, and newer ones are left visible (their skip time was never
+ * recorded). Seeded friends are not touched. One page per call.
+ */
+export const backfillSkippedPlays = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()), since: v.number() },
+  returns: v.object({ madeVisible: v.number(), keptHidden: v.number(), cursor: v.string(), done: v.boolean() }),
+  handler: async (ctx, { cursor, since }) => {
+    const page = await ctx.db.query('plays').paginate({ cursor, numItems: 200 });
+    let madeVisible = 0;
+    let keptHidden = 0;
+    for (const play of page.page) {
+      if (!play.skipped || play.hidden !== undefined || play.deviceId.startsWith(TUNING.feed.seedDevicePrefix)) continue;
+      if (play.startedAt >= since) madeVisible += 1;
+      else {
+        await ctx.db.patch('plays', play._id, { hidden: true });
+        keptHidden += 1;
+      }
+    }
+    return { madeVisible, keptHidden, cursor: page.continueCursor, done: page.isDone };
   },
 });
 

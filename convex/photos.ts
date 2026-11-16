@@ -69,7 +69,7 @@ export const attach = mutation({
                 .lte('startedAt', takenAt),
             )
             .order('desc')
-            .filter((q) => q.eq(q.field('skipped'), false))
+            .filter((q) => q.neq(q.field('hidden'), true))
             .take(1),
     ]);
 
