@@ -71,9 +71,38 @@ const SETTING_PHRASE: Record<Setting, string> = {
 /**
  * The scene as a sentence for the italic scene line: "A slow rainy walk in the
  * city, late at night", "A sunny afternoon walk in the park". Built from the
- * scene's parts rather than its label, so it reads as prose.
+ * scene's parts rather than its label, so it reads as prose. Pass `where` so
+ * an indoor scene is placed properly: "at Y Combinator", not "at home".
  */
-export function sceneSentence(scene: Pick<Scene, 'pace' | 'weather' | 'setting' | 'timeOfDay'>): string {
+export type SceneWhere = {
+  /** Where the user is, by name: `useSensing().location`. */
+  location: Pick<ScoreLocation, 'label' | 'street' | 'area' | 'city'> | null;
+  /** A bare place name when there is no location: `context.placeName`. */
+  placeName?: string | null;
+  /** The user has tagged this spot as their home. */
+  atHome?: boolean;
+};
+
+/**
+ * Where an indoor scene is, in words. "at home" only when it is the user's
+ * home or nothing at all is known about the place; a named venue is named
+ * ("at Y Combinator"); any other known place is just "indoors".
+ */
+function indoorsPhrase(where?: SceneWhere): string {
+  if (!where || where.atHome) return 'at home';
+  const name = where.placeName?.trim();
+  if (name?.toLowerCase() === 'home') return 'at home';
+  if (where.location) {
+    const venue = venueName(where.location);
+    return venue ? `at ${venue}` : 'indoors';
+  }
+  return name ? 'indoors' : 'at home';
+}
+
+export function sceneSentence(
+  scene: Pick<Scene, 'pace' | 'weather' | 'setting' | 'timeOfDay'>,
+  where?: SceneWhere
+): string {
   const night = scene.timeOfDay === 'night';
   const daylight = scene.timeOfDay === 'morning' || scene.timeOfDay === 'afternoon';
   const adjective =
@@ -93,7 +122,8 @@ export function sceneSentence(scene: Pick<Scene, 'pace' | 'weather' | 'setting' 
   else what = join(adjective, time, 'run');
 
   const article = /^[aeiou]/.test(what) ? 'An' : 'A';
-  const sentence = join(article, what, SETTING_PHRASE[scene.setting]);
+  const setting = scene.setting === 'indoors' ? indoorsPhrase(where) : SETTING_PHRASE[scene.setting];
+  const sentence = join(article, what, setting);
   return night ? `${sentence}, late at night` : sentence;
 }
 /**

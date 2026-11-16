@@ -51,7 +51,9 @@ export function MetaLine({
   testID,
   style,
 }: Props) {
-  const rawPlace = location ? placeShort(location) : (context.placeName ?? null);
+  const named = location ? placeShort(location) : (context.placeName ?? null);
+  // The engine names the user's own place a bare "home"; on the line it reads "At home".
+  const rawPlace = named?.trim().toLowerCase() === 'home' ? 'At home' : named;
   const place = rawPlace ? shorten(rawPlace, MAX_PLACE_CHARS) : null;
   // The event by its own name when it has one, else "Game in 45 min".
   const rawOccasion = occasionTitle?.trim() || occasionShort(scene);
@@ -88,7 +90,7 @@ export function MetaLine({
       variant="meta">
       {lead}
       {place ? (
-        <AppText accessibilityLabel={`At ${rawPlace}`} testID="now-place" tone="muted" variant="meta">
+        <AppText accessibilityLabel={rawPlace ?? undefined} testID="now-place" tone="muted" variant="meta">
           {`${separator(placeFirst)}${place}`}
         </AppText>
       ) : null}

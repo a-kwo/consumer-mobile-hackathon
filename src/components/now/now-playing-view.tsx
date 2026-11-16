@@ -140,7 +140,11 @@ export function NowPlayingView({ session, sensing }: Props) {
         <Animated.View style={[styles.text, crossFadeStyle(words.visible, reduceMotion)]}>
           {/* The scene this cue was picked for, as a sentence. */}
           <AppText numberOfLines={1} testID="now-scene-label" tone="muted" variant="sceneLine">
-            {sceneSentence(words.value.scene)}
+            {sceneSentence(words.value.scene, {
+              location: sensing.location,
+              placeName: sensing.context.placeName,
+              atHome: sensing.herePlace?.kind === 'home',
+            })}
           </AppText>
 
           <View style={compact ? styles.titleCompact : styles.title}>
